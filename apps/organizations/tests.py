@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 from asgiref.sync import async_to_sync
 from channels.testing import WebsocketCommunicator
+from django.test import override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITransactionTestCase
@@ -92,6 +93,16 @@ class OrganizationAPITests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['user_email'], self.user.email)
         self.assertEqual(response.data[0]['role'], OrganizationMembership.Role.OWNER)
+
+    @override_settings(DISABLE_AUTH_FOR_LOCAL_DEV=True, LOCAL_DEV_AUTH_EMAIL='owner@example.com')
+    def test_local_dev_auth_can_read_without_bearer_token(self):
+        organization = self.create_organization_with_membership()
+
+        response = self.client.get('/api/v1/organizations/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], organization.id)
 
     def test_organization_updates_are_broadcast_to_channel_group(self):
         self.authenticate()

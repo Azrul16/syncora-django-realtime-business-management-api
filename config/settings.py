@@ -15,6 +15,8 @@ def env_bool(name, default=False):
 
 
 DEBUG = env_bool('DEBUG', True)
+DISABLE_AUTH_FOR_LOCAL_DEV = env_bool('DISABLE_AUTH_FOR_LOCAL_DEV', False)
+LOCAL_DEV_AUTH_EMAIL = os.getenv('LOCAL_DEV_AUTH_EMAIL', '')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 if not SECRET_KEY and DEBUG:
@@ -102,6 +104,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'apps.core.authentication.LocalDevAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),

@@ -51,6 +51,15 @@ python manage.py runserver
 
 ## API
 
+During local development, you can temporarily bypass JWT auth for REST API testing by setting:
+
+```env
+DISABLE_AUTH_FOR_LOCAL_DEV=True
+LOCAL_DEV_AUTH_EMAIL=azrul@gmail.com
+```
+
+Set `DISABLE_AUTH_FOR_LOCAL_DEV=False` before enabling production-style authentication again.
+
 - `POST /api/v1/auth/token/`
 - `POST /api/v1/auth/token/refresh/`
 - `GET /api/v1/organizations/`
