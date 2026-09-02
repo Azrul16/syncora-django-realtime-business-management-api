@@ -12,8 +12,9 @@ class PurchaseItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseItem
-        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_cost', 'line_total']
+        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_cost', 'discount', 'tax', 'line_total']
         read_only_fields = ['id', 'line_total']
+        extra_kwargs = {'product': {'required': False}}
 
 
 class PurchaseSerializer(serializers.ModelSerializer):
@@ -28,15 +29,36 @@ class PurchaseSerializer(serializers.ModelSerializer):
             'branch',
             'supplier',
             'reference',
+            'purchase_number',
             'status',
+            'order_date',
+            'expected_date',
             'notes',
+            'discount_amount',
+            'tax_amount',
+            'shipping_cost',
+            'subtotal',
+            'grand_total',
+            'created_by',
             'items',
             'total_amount',
             'received_at',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'organization', 'status', 'total_amount', 'received_at', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id',
+            'organization',
+            'purchase_number',
+            'status',
+            'subtotal',
+            'grand_total',
+            'created_by',
+            'total_amount',
+            'received_at',
+            'created_at',
+            'updated_at',
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,12 +88,17 @@ class PurchaseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Branch and supplier must belong to the same organization.')
 
         for item in items:
-            product = item['product']
+            product = item.get('product')
             product_variant = item.get('product_variant')
+            if product_variant:
+                if product and product_variant.product_id != product.id:
+                    raise serializers.ValidationError('Product variant must belong to its line item product.')
+                item['product'] = product_variant.product
+                product = product_variant.product
+            if not product:
+                raise serializers.ValidationError('Each purchase item requires a product or product variant.')
             if branch and product.organization_id != branch.organization_id:
                 raise serializers.ValidationError('All products must belong to the branch organization.')
-            if product_variant and product_variant.product_id != product.id:
-                raise serializers.ValidationError('Product variant must belong to its line item product.')
 
         return attrs
 
@@ -86,4 +113,5 @@ class PurchaseSerializer(serializers.ModelSerializer):
             PurchaseItem(purchase=purchase, **item)
             for item in items
         )
+        purchase.recalculate_totals()
         return purchase

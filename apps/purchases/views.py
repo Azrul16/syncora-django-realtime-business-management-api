@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -10,6 +11,7 @@ from apps.organizations.permissions import (
 )
 
 from .models import Purchase
+from .events import broadcast_purchase_event
 from .serializers import PurchaseSerializer
 
 
@@ -17,32 +19,78 @@ class PurchaseViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
     filterset_fields = ['organization', 'branch', 'supplier', 'status']
-    search_fields = ['reference', 'supplier__name', 'branch__name']
-    ordering_fields = ['created_at', 'updated_at', 'received_at']
+    search_fields = ['reference', 'purchase_number', 'supplier__name', 'branch__name']
+    ordering_fields = ['order_date', 'created_at', 'updated_at', 'received_at']
 
     def get_queryset(self):
-        return Purchase.objects.filter(
+        queryset = Purchase.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
         ).select_related('organization', 'branch', 'supplier').prefetch_related('items__product').distinct()
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            queryset = queryset.filter(order_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(order_date__lte=date_to)
+        return queryset
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['branch'].organization
         membership = get_active_membership(self.request.user, organization)
         if not membership or not membership.is_manager:
             raise PermissionDenied('Only organization owners, admins, or managers can create purchases.')
-        serializer.save()
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status in {Purchase.Status.RECEIVED, Purchase.Status.CANCELLED}:
+            raise ValidationError({'status': 'Received or cancelled purchases cannot be edited.'})
+        purchase = serializer.save()
+        purchase.recalculate_totals()
+
+    @action(detail=True, methods=['post'])
+    def order(self, request, pk=None):
+        purchase = self.get_object()
+        self.ensure_can_manage_purchase(request, purchase, 'order')
+
+        try:
+            purchase.order()
+        except DjangoValidationError as error:
+            raise ValidationError({'status': error.messages}) from error
+
+        broadcast_purchase_event(purchase, 'purchase.ordered')
+        return Response(self.get_serializer(purchase).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def receive(self, request, pk=None):
         purchase = self.get_object()
-        membership = get_active_membership(request.user, purchase.organization)
+        self.ensure_can_manage_purchase(request, purchase, 'receive')
 
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can receive purchases.')
-        if purchase.status == Purchase.Status.CANCELLED:
-            raise ValidationError({'status': 'Cancelled purchases cannot be received.'})
+        try:
+            purchase.receive()
+        except DjangoValidationError as error:
+            raise ValidationError({'status': error.messages}) from error
 
-        purchase.receive()
+        broadcast_purchase_event(purchase, 'purchase.received')
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        purchase = self.get_object()
+        self.ensure_can_manage_purchase(request, purchase, 'cancel')
+
+        try:
+            purchase.cancel()
+        except DjangoValidationError as error:
+            raise ValidationError({'status': error.messages}) from error
+
+        broadcast_purchase_event(purchase, 'purchase.cancelled')
+        return Response(self.get_serializer(purchase).data, status=status.HTTP_200_OK)
+
+    def ensure_can_manage_purchase(self, request, purchase, action_name):
+        membership = get_active_membership(request.user, purchase.organization)
+        if not membership or not membership.is_manager:
+            raise PermissionDenied(
+                f'Only organization owners, admins, or managers can {action_name} purchases.'
+            )

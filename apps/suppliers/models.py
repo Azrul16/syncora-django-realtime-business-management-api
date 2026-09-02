@@ -8,10 +8,20 @@ class Supplier(models.Model):
         related_name='suppliers',
     )
     name = models.CharField(max_length=255)
+    contact_person = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     address = models.TextField(blank=True)
+    tax_number = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        related_name='created_suppliers',
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

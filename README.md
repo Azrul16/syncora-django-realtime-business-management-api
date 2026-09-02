@@ -87,7 +87,9 @@ Set `DISABLE_AUTH_FOR_LOCAL_DEV=False` before enabling production-style authenti
 - `POST /api/v1/suppliers/`
 - `GET /api/v1/purchases/`
 - `POST /api/v1/purchases/`
+- `POST /api/v1/purchases/{id}/order/`
 - `POST /api/v1/purchases/{id}/receive/`
+- `POST /api/v1/purchases/{id}/cancel/`
 - `GET /api/v1/customers/`
 - `POST /api/v1/customers/`
 - `GET /api/v1/sales/`
@@ -115,6 +117,12 @@ Inventory-specific clients can also connect to:
 
 ```text
 ws://localhost:8000/ws/organizations/{organization_id}/inventory/?token={access_token}
+```
+
+Purchase-specific clients can connect to:
+
+```text
+ws://localhost:8000/ws/organizations/{organization_id}/purchases/?token={access_token}
 ```
 
 ```json
@@ -146,6 +154,20 @@ Inventory changes from completed sales are also broadcast to connected organizat
     "product": 1,
     "quantity": "16.00",
     "is_low_stock": false
+  }
+}
+```
+
+Purchase workflow events are broadcast as purchases are ordered, received, or cancelled:
+
+```json
+{
+  "type": "purchase.received",
+  "data": {
+    "purchase_id": 31,
+    "purchase_number": "PO-000031",
+    "status": "RECEIVED",
+    "total": "1050000.00"
   }
 }
 ```
