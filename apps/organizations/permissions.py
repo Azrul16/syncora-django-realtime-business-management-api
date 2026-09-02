@@ -46,3 +46,15 @@ class IsOrganizationMemberReadOnlyOrAdmin(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return membership.is_admin
+
+
+class IsOrganizationMemberReadOnlyOrManager(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        organization = getattr(obj, 'organization', obj)
+        membership = get_active_membership(request.user, organization)
+
+        if not membership:
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return membership.is_manager

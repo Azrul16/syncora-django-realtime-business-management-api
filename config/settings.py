@@ -42,6 +42,11 @@ INSTALLED_APPS = [
     'channels',
     'apps.accounts',
     'apps.organizations',
+    'apps.branches',
+    'apps.products',
+    'apps.inventory',
+    'apps.suppliers',
+    'apps.purchases',
 ]
 
 MIDDLEWARE = [
