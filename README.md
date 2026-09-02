@@ -94,7 +94,11 @@ Set `DISABLE_AUTH_FOR_LOCAL_DEV=False` before enabling production-style authenti
 - `POST /api/v1/customers/`
 - `GET /api/v1/sales/`
 - `POST /api/v1/sales/`
+- `POST /api/v1/sales/{id}/confirm/`
 - `POST /api/v1/sales/{id}/complete/`
+- `POST /api/v1/sales/{id}/cancel/`
+- `GET /api/v1/sales/{id}/payments/`
+- `POST /api/v1/sales/{id}/payments/`
 - `GET /api/v1/expenses/`
 - `POST /api/v1/expenses/`
 - `GET /api/v1/organizations/{id}/dashboard/`
@@ -123,6 +127,13 @@ Purchase-specific clients can connect to:
 
 ```text
 ws://localhost:8000/ws/organizations/{organization_id}/purchases/?token={access_token}
+```
+
+Sales and payment clients can connect to:
+
+```text
+ws://localhost:8000/ws/organizations/{organization_id}/sales/?token={access_token}
+ws://localhost:8000/ws/organizations/{organization_id}/payments/?token={access_token}
 ```
 
 ```json
@@ -168,6 +179,21 @@ Purchase workflow events are broadcast as purchases are ordered, received, or ca
     "purchase_number": "PO-000031",
     "status": "RECEIVED",
     "total": "1050000.00"
+  }
+}
+```
+
+Sales workflow and payment events are broadcast as sales are confirmed, completed, cancelled, or paid:
+
+```json
+{
+  "type": "sale.completed",
+  "data": {
+    "sale_id": 12,
+    "sale_number": "SL-000012",
+    "status": "COMPLETED",
+    "total": "343.00",
+    "payment_status": "UNPAID"
   }
 }
 ```

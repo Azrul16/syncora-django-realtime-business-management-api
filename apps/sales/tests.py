@@ -6,11 +6,12 @@ from rest_framework.test import APITestCase
 
 from apps.branches.models import Branch
 from apps.customers.models import Customer
-from apps.inventory.models import InventoryStock
+from apps.inventory.models import InventoryStock, StockMovement
+from apps.inventory.services import increase_stock
 from apps.organizations.models import Organization, OrganizationMembership
-from apps.products.models import Product
+from apps.products.models import Product, ProductVariant
 
-from .models import Sale
+from .models import Payment, Sale
 
 
 class SaleAPITests(APITestCase):
@@ -33,13 +34,19 @@ class SaleAPITests(APITestCase):
             sku='SALE-PARA-1',
             selling_price='120.00',
         )
-        self.stock = InventoryStock.objects.create(
-            organization=self.organization,
-            branch=self.branch,
+        self.variant = ProductVariant.objects.create(
             product=self.product,
-            quantity='20.00',
-            reorder_level='5.00',
+            name='Box',
+            sku='SALE-PARA-1-BOX',
+            selling_price='120.00',
         )
+        increase_stock(
+            branch=self.branch,
+            product_variant=self.variant,
+            quantity='20.00',
+            movement_type=StockMovement.MovementType.OPENING_STOCK,
+        )
+        self.stock = InventoryStock.objects.get(branch=self.branch, product_variant=self.variant)
 
     def authenticate(self, user=None):
         self.client.force_authenticate(user=user or self.user)
@@ -52,16 +59,28 @@ class SaleAPITests(APITestCase):
             'branch': self.branch.id,
             'customer': self.customer.id,
             'reference': 'SO-001',
+            'discount_amount': '10.00',
+            'tax_amount': '5.00',
             'items': [
                 {
                     'product': self.product.id,
+                    'product_variant': self.variant.id,
                     'quantity': quantity,
                     'unit_price': '120.00',
+                    'discount': '15.00',
+                    'tax': '3.00',
                 }
             ],
         }
 
-    def test_manager_can_create_sale_draft(self):
+    def create_confirmed_sale(self, quantity='3.00'):
+        create_response = self.client.post('/api/v1/sales/', self.sale_payload(quantity=quantity), format='json')
+        sale_id = create_response.data['id']
+        confirm_response = self.client.post(f'/api/v1/sales/{sale_id}/confirm/')
+        self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
+        return sale_id
+
+    def test_manager_can_create_sale_draft_with_totals(self):
         manager = self.create_user('sale-manager@example.com')
         OrganizationMembership.objects.create(
             user=manager,
@@ -74,54 +93,174 @@ class SaleAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['status'], Sale.Status.DRAFT)
+        self.assertRegex(response.data['sale_number'], r'^SL-\d{6}$')
         self.assertEqual(response.data['organization'], self.organization.id)
-        self.assertEqual(response.data['total_amount'], '360.00')
+        self.assertEqual(response.data['subtotal'], '348.00')
+        self.assertEqual(response.data['grand_total'], '343.00')
+        self.assertEqual(response.data['total_amount'], '343.00')
+        self.assertEqual(response.data['payment_status'], Sale.PaymentStatus.UNPAID)
+        self.assertEqual(response.data['created_by'], manager.id)
 
-    def test_completing_sale_decrements_inventory_and_broadcasts_stock_update(self):
+    def test_confirm_action_changes_draft_to_confirmed_and_broadcasts_event(self):
         self.authenticate()
-        create_response = self.client.post('/api/v1/sales/', self.sale_payload(quantity='4.00'), format='json')
-        sale_id = create_response.data['id']
+        create_response = self.client.post('/api/v1/sales/', self.sale_payload(), format='json')
         sync_group_send = Mock()
 
-        with patch('apps.inventory.events.async_to_sync', return_value=sync_group_send):
-            response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
+        with patch('apps.sales.events.async_to_sync', return_value=sync_group_send):
+            response = self.client.post(f'/api/v1/sales/{create_response.data["id"]}/confirm/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.stock.refresh_from_db()
-        self.assertEqual(str(self.stock.quantity), '16.00')
+        self.assertEqual(response.data['status'], Sale.Status.CONFIRMED)
         self.assertEqual(sync_group_send.call_count, 2)
         groups = {call.args[0] for call in sync_group_send.call_args_list}
         self.assertEqual(
             groups,
-            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_inventory'},
+            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_sales'},
         )
         event = sync_group_send.call_args_list[0].args[1]
-        self.assertEqual(event['type'], 'inventory.stock_updated')
-        self.assertEqual(event['data']['quantity'], '16.00')
+        self.assertEqual(event['type'], 'sale.event')
+        self.assertEqual(event['data']['event'], 'sale.confirmed')
 
-    def test_completing_sale_twice_does_not_decrement_stock_twice(self):
+    def test_draft_sale_cannot_be_completed_directly(self):
         self.authenticate()
         create_response = self.client.post('/api/v1/sales/', self.sale_payload(quantity='4.00'), format='json')
-        sale_id = create_response.data['id']
 
-        first_response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
+        response = self.client.post(f'/api/v1/sales/{create_response.data["id"]}/complete/')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.stock.refresh_from_db()
+        self.assertEqual(str(self.stock.quantity), '20.00')
+
+    def test_completing_confirmed_sale_decrements_inventory_and_creates_movement(self):
+        self.authenticate()
+        sale_id = self.create_confirmed_sale(quantity='4.00')
+
+        response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
         second_response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
 
-        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], Sale.Status.COMPLETED)
+        self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.stock.refresh_from_db()
         self.assertEqual(str(self.stock.quantity), '16.00')
+        movement = StockMovement.objects.filter(
+            product_variant=self.variant,
+            movement_type=StockMovement.MovementType.SALE,
+        ).latest('created_at')
+        self.assertEqual(str(movement.previous_quantity), '20.00')
+        self.assertEqual(str(movement.quantity), '4.00')
+        self.assertEqual(str(movement.new_quantity), '16.00')
 
-    def test_sale_completion_rejects_insufficient_stock(self):
+    def test_completing_sale_broadcasts_sale_and_inventory_events(self):
         self.authenticate()
-        create_response = self.client.post('/api/v1/sales/', self.sale_payload(quantity='25.00'), format='json')
-        sale_id = create_response.data['id']
+        sale_id = self.create_confirmed_sale(quantity='4.00')
+        inventory_group_send = Mock()
+        sale_group_send = Mock()
+
+        with patch('apps.inventory.events.async_to_sync', return_value=inventory_group_send):
+            with patch('apps.sales.events.async_to_sync', return_value=sale_group_send):
+                response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(inventory_group_send.call_count, 2)
+        self.assertEqual(sale_group_send.call_count, 2)
+        sale_event = sale_group_send.call_args_list[0].args[1]
+        self.assertEqual(sale_event['type'], 'sale.event')
+        self.assertEqual(sale_event['data']['event'], 'sale.completed')
+
+    def test_sale_completion_rejects_insufficient_stock_and_rolls_back(self):
+        self.authenticate()
+        sale_id = self.create_confirmed_sale(quantity='25.00')
 
         response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.stock.refresh_from_db()
         self.assertEqual(str(self.stock.quantity), '20.00')
+        sale = Sale.objects.get(id=sale_id)
+        self.assertEqual(sale.status, Sale.Status.CONFIRMED)
+        self.assertFalse(StockMovement.objects.filter(movement_type=StockMovement.MovementType.SALE).exists())
+
+    def test_cancel_action_blocks_later_completion(self):
+        self.authenticate()
+        create_response = self.client.post('/api/v1/sales/', self.sale_payload(), format='json')
+        sale_id = create_response.data['id']
+
+        cancel_response = self.client.post(f'/api/v1/sales/{sale_id}/cancel/')
+        complete_response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
+
+        self.assertEqual(cancel_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(cancel_response.data['status'], Sale.Status.CANCELLED)
+        self.assertEqual(complete_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_payments_track_partial_paid_and_reject_overpayment(self):
+        self.authenticate()
+        sale_id = self.create_confirmed_sale(quantity='1.00')
+        self.client.post(f'/api/v1/sales/{sale_id}/complete/')
+
+        partial_response = self.client.post(
+            f'/api/v1/sales/{sale_id}/payments/',
+            {'amount': '50.00', 'payment_method': Payment.Method.CASH},
+            format='json',
+        )
+        sale_response = self.client.get(f'/api/v1/sales/{sale_id}/')
+        full_response = self.client.post(
+            f'/api/v1/sales/{sale_id}/payments/',
+            {'amount': '53.00', 'payment_method': Payment.Method.MOBILE_BANKING},
+            format='json',
+        )
+        overpayment_response = self.client.post(
+            f'/api/v1/sales/{sale_id}/payments/',
+            {'amount': '1.00', 'payment_method': Payment.Method.CASH},
+            format='json',
+        )
+
+        self.assertEqual(partial_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(partial_response.data['payment_status'], Sale.PaymentStatus.PARTIALLY_PAID)
+        self.assertEqual(sale_response.data['paid_amount'], '50.00')
+        self.assertEqual(sale_response.data['due_amount'], '53.00')
+        self.assertEqual(full_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(full_response.data['payment_status'], Sale.PaymentStatus.PAID)
+        self.assertEqual(overpayment_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_payment_creation_broadcasts_payment_event(self):
+        self.authenticate()
+        sale_id = self.create_confirmed_sale(quantity='1.00')
+        sync_group_send = Mock()
+
+        with patch('apps.sales.events.async_to_sync', return_value=sync_group_send):
+            response = self.client.post(
+                f'/api/v1/sales/{sale_id}/payments/',
+                {'amount': '50.00', 'payment_method': Payment.Method.CASH},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(sync_group_send.call_count, 2)
+        groups = {call.args[0] for call in sync_group_send.call_args_list}
+        self.assertEqual(
+            groups,
+            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_payments'},
+        )
+        event = sync_group_send.call_args_list[0].args[1]
+        self.assertEqual(event['type'], 'payment.event')
+        self.assertEqual(event['data']['event'], 'payment.created')
+
+    def test_payment_status_filter_returns_matching_sales(self):
+        self.authenticate()
+        unpaid_sale_id = self.create_confirmed_sale(quantity='1.00')
+        paid_sale_id = self.create_confirmed_sale(quantity='1.00')
+        self.client.post(
+            f'/api/v1/sales/{paid_sale_id}/payments/',
+            {'amount': '103.00', 'payment_method': Payment.Method.CASH},
+            format='json',
+        )
+
+        unpaid_response = self.client.get('/api/v1/sales/?payment_status=UNPAID')
+        paid_response = self.client.get('/api/v1/sales/?payment_status=PAID')
+
+        self.assertEqual({sale['id'] for sale in unpaid_response.data['results']}, {unpaid_sale_id})
+        self.assertEqual({sale['id'] for sale in paid_response.data['results']}, {paid_sale_id})
 
     def test_employee_can_read_but_cannot_create_sale(self):
         employee = self.create_user('sale-employee@example.com')
@@ -144,3 +283,19 @@ class SaleAPITests(APITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(list_response.data['count'], 1)
         self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_sale_rejects_product_from_other_organization(self):
+        other_organization = Organization.objects.create(name='Other Sale Org')
+        other_product = Product.objects.create(
+            organization=other_organization,
+            name='Other Product',
+            sku='OTHER-SALE-1',
+        )
+        payload = self.sale_payload()
+        payload['items'][0].pop('product_variant')
+        payload['items'][0]['product'] = other_product.id
+        self.authenticate()
+
+        response = self.client.post('/api/v1/sales/', payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

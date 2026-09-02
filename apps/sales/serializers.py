@@ -5,7 +5,7 @@ from apps.branches.models import Branch
 from apps.customers.models import Customer
 from apps.products.models import Product, ProductVariant
 
-from .models import Sale, SaleItem
+from .models import Payment, Sale, SaleItem
 
 
 class SaleItemSerializer(serializers.ModelSerializer):
@@ -13,14 +13,50 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SaleItem
-        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_price', 'line_total']
+        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_price', 'discount', 'tax', 'line_total']
         read_only_fields = ['id', 'line_total']
         extra_kwargs = {'product': {'required': False}}
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    payment_status = serializers.CharField(source='sale.payment_status', read_only=True)
+    paid_amount = serializers.DecimalField(source='sale.paid_amount', max_digits=12, decimal_places=2, read_only=True)
+    due_amount = serializers.DecimalField(source='sale.due_amount', max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            'id',
+            'sale',
+            'organization',
+            'amount',
+            'payment_method',
+            'reference_number',
+            'paid_at',
+            'received_by',
+            'notes',
+            'payment_status',
+            'paid_amount',
+            'due_amount',
+            'created_at',
+        ]
+        read_only_fields = [
+            'id',
+            'organization',
+            'received_by',
+            'payment_status',
+            'paid_amount',
+            'due_amount',
+            'created_at',
+        ]
 
 
 class SaleSerializer(serializers.ModelSerializer):
     items = SaleItemSerializer(many=True)
     total_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    paid_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    due_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    payment_status = serializers.CharField(read_only=True)
 
     class Meta:
         model = Sale
@@ -30,15 +66,40 @@ class SaleSerializer(serializers.ModelSerializer):
             'branch',
             'customer',
             'reference',
+            'sale_number',
             'status',
+            'sale_date',
             'notes',
+            'discount_amount',
+            'tax_amount',
+            'subtotal',
+            'grand_total',
+            'created_by',
             'items',
             'total_amount',
+            'paid_amount',
+            'due_amount',
+            'payment_status',
             'completed_at',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'organization', 'status', 'total_amount', 'completed_at', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id',
+            'organization',
+            'sale_number',
+            'status',
+            'subtotal',
+            'grand_total',
+            'created_by',
+            'total_amount',
+            'paid_amount',
+            'due_amount',
+            'payment_status',
+            'completed_at',
+            'created_at',
+            'updated_at',
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -90,7 +151,21 @@ class SaleSerializer(serializers.ModelSerializer):
             **validated_data,
         )
         SaleItem.objects.bulk_create(SaleItem(sale=sale, **item) for item in items)
+        sale.recalculate_totals()
         return sale
+
+    def update(self, instance, validated_data):
+        items = validated_data.pop('items', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if items is not None:
+            instance.items.all().delete()
+            SaleItem.objects.bulk_create(SaleItem(sale=instance, **item) for item in items)
+
+        instance.recalculate_totals()
+        return instance
 
     def complete(self, sale):
         try:

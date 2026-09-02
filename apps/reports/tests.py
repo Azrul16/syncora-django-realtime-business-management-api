@@ -71,6 +71,7 @@ class OrganizationDashboardTests(APITestCase):
             quantity='3.00',
             unit_price='120.00',
         )
+        sale.recalculate_totals()
         Expense.objects.create(
             organization=self.organization,
             branch=self.branch,

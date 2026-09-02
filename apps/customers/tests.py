@@ -39,14 +39,19 @@ class CustomerAPITests(APITestCase):
             '/api/v1/customers/',
             {
                 'organization': self.organization.id,
+                'customer_code': 'CUST-001',
                 'name': 'Rahim Uddin',
                 'phone': '01700000002',
+                'notes': 'Prefers mobile banking.',
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Customer.objects.filter(name='Rahim Uddin').exists())
+        customer = Customer.objects.get(name='Rahim Uddin')
+        self.assertEqual(customer.customer_code, 'CUST-001')
+        self.assertEqual(customer.created_by, manager)
+        self.assertEqual(customer.notes, 'Prefers mobile banking.')
 
     def test_employee_can_read_but_cannot_create_customer(self):
         employee = self.create_user('customer-employee@example.com')

@@ -30,7 +30,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         membership = get_active_membership(self.request.user, organization)
         if not membership or not membership.is_manager:
             raise PermissionDenied('Only organization owners, admins, or managers can create customers.')
-        serializer.save()
+        serializer.save(created_by=self.request.user)
 
     def get_serializer(self, *args, **kwargs):
         serializer = super().get_serializer(*args, **kwargs)

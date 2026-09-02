@@ -11,7 +11,7 @@ from apps.inventory.models import InventoryStock
 from apps.organizations.models import Organization
 from apps.organizations.permissions import get_active_membership
 from apps.purchases.models import Purchase, PurchaseItem
-from apps.sales.models import Sale, SaleItem
+from apps.sales.models import Sale
 
 from .serializers import OrganizationDashboardSerializer
 
@@ -35,12 +35,10 @@ def organization_dashboard(request, organization_id):
     ).aggregate(
         total=Sum(F('quantity') * F('unit_cost'), output_field=DecimalField(max_digits=14, decimal_places=2))
     )['total']
-    sales_total = SaleItem.objects.filter(
-        sale__organization=organization,
-        sale__status=Sale.Status.COMPLETED,
-    ).aggregate(
-        total=Sum(F('quantity') * F('unit_price'), output_field=DecimalField(max_digits=14, decimal_places=2))
-    )['total']
+    sales_total = Sale.objects.filter(
+        organization=organization,
+        status=Sale.Status.COMPLETED,
+    ).aggregate(total=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)))['total']
 
     data = {
         'organization': organization.id,
