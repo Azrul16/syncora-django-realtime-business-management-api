@@ -137,10 +137,12 @@ class FinancialSummaryService:
         }
 
     def get_cash_flow_summary(self):
+        cash_in = self.get_payment_summary()['received']
+        cash_out = self.get_expense_summary()['total']
         return {
-            'cash_in': self.get_payment_summary()['received'],
-            'cash_out': self.get_expense_summary()['total'],
-            'net_cash_flow': ZERO,
+            'cash_in': cash_in,
+            'cash_out': cash_out,
+            'net_cash_flow': cash_in - cash_out,
         }
 
     def get_summary(self):
