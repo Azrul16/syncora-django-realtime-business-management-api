@@ -77,6 +77,9 @@ python manage.py runserver
 - `GET /api/v1/sales/`
 - `POST /api/v1/sales/`
 - `POST /api/v1/sales/{id}/complete/`
+- `GET /api/v1/expenses/`
+- `POST /api/v1/expenses/`
+- `GET /api/v1/organizations/{id}/dashboard/`
 
 Organization owners and admins can manage members. Admins can manage non-owner members, while only owners can assign or change owner memberships.
 Organization owners, admins, and managers can manage operational business records. Employees can read organization data but cannot create or update these records.
