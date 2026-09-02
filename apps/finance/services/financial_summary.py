@@ -4,7 +4,7 @@ from django.db.models import Count, DecimalField, F, Sum
 
 from apps.expenses.models import Expense
 from apps.purchases.models import Purchase, PurchaseItem
-from apps.sales.models import Payment, Sale
+from apps.sales.models import Payment, Sale, SaleItem
 
 
 ZERO = Decimal('0.00')
@@ -120,10 +120,20 @@ class FinancialSummaryService:
         }
 
     def get_profit_summary(self):
+        sales = self.get_sales_queryset()
+        revenue = self.get_sales_summary()['revenue']
+        cogs = decimal_sum(
+            SaleItem.objects.filter(sale__in=sales).aggregate(
+                total=Sum(
+                    F('quantity') * F('unit_cost'),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            )['total']
+        )
         return {
-            'revenue': self.get_sales_summary()['revenue'],
-            'cost_of_goods_sold': ZERO,
-            'gross_profit': self.get_sales_summary()['revenue'],
+            'revenue': revenue,
+            'cost_of_goods_sold': cogs,
+            'gross_profit': revenue - cogs,
         }
 
     def get_cash_flow_summary(self):

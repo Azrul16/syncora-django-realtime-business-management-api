@@ -156,6 +156,7 @@ class SaleItem(models.Model):
         blank=True,
     )
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
     discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax = models.DecimalField(max_digits=12, decimal_places=2, default=0)

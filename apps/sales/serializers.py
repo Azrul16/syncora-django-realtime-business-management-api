@@ -13,8 +13,8 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SaleItem
-        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_price', 'discount', 'tax', 'line_total']
-        read_only_fields = ['id', 'line_total']
+        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_cost', 'unit_price', 'discount', 'tax', 'line_total']
+        read_only_fields = ['id', 'unit_cost', 'line_total']
         extra_kwargs = {'product': {'required': False}}
 
 
@@ -140,6 +140,7 @@ class SaleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Each sale item requires a product or product variant.')
             if branch and product.organization_id != branch.organization_id:
                 raise serializers.ValidationError('All products must belong to the branch organization.')
+            item['unit_cost'] = product_variant.cost_price if product_variant else product.cost_price
 
         return attrs
 
