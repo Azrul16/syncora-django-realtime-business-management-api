@@ -190,6 +190,142 @@ class OrganizationAPITests(APITestCase):
         organization.refresh_from_db()
         self.assertEqual(organization.name, 'Syncora Demo Company')
 
+    def test_owner_can_add_existing_user_as_member(self):
+        self.authenticate()
+        organization = self.create_organization_with_membership()
+        employee = self.create_user('new-employee@example.com')
+
+        response = self.client.post(
+            f'/api/v1/organizations/{organization.id}/members/',
+            {
+                'user_email': employee.email,
+                'role': OrganizationMembership.Role.EMPLOYEE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['user_email'], employee.email)
+        self.assertEqual(response.data['role'], OrganizationMembership.Role.EMPLOYEE)
+        self.assertTrue(
+            OrganizationMembership.objects.filter(
+                user=employee,
+                organization=organization,
+                role=OrganizationMembership.Role.EMPLOYEE,
+                is_active=True,
+            ).exists()
+        )
+
+    def test_manager_cannot_add_members(self):
+        manager = self.create_user('member-manager@example.com')
+        new_member = self.create_user('blocked-employee@example.com')
+        organization = self.create_organization_with_membership(
+            user=manager,
+            role=OrganizationMembership.Role.MANAGER,
+        )
+        self.client.force_authenticate(user=manager)
+
+        response = self.client.post(
+            f'/api/v1/organizations/{organization.id}/members/',
+            {
+                'user_email': new_member.email,
+                'role': OrganizationMembership.Role.EMPLOYEE,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            OrganizationMembership.objects.filter(
+                user=new_member,
+                organization=organization,
+            ).exists()
+        )
+
+    def test_admin_can_update_non_owner_member_role(self):
+        admin = self.create_user('role-admin@example.com')
+        employee = self.create_user('role-employee@example.com')
+        organization = self.create_organization_with_membership(
+            user=admin,
+            role=OrganizationMembership.Role.ADMIN,
+        )
+        membership = OrganizationMembership.objects.create(
+            user=employee,
+            organization=organization,
+            role=OrganizationMembership.Role.EMPLOYEE,
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            f'/api/v1/organizations/{organization.id}/members/{membership.id}/',
+            {'role': OrganizationMembership.Role.MANAGER},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        membership.refresh_from_db()
+        self.assertEqual(membership.role, OrganizationMembership.Role.MANAGER)
+
+    def test_admin_cannot_assign_owner_role(self):
+        admin = self.create_user('limited-admin@example.com')
+        employee = self.create_user('future-owner@example.com')
+        organization = self.create_organization_with_membership(
+            user=admin,
+            role=OrganizationMembership.Role.ADMIN,
+        )
+        membership = OrganizationMembership.objects.create(
+            user=employee,
+            organization=organization,
+            role=OrganizationMembership.Role.EMPLOYEE,
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.patch(
+            f'/api/v1/organizations/{organization.id}/members/{membership.id}/',
+            {'role': OrganizationMembership.Role.OWNER},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        membership.refresh_from_db()
+        self.assertEqual(membership.role, OrganizationMembership.Role.EMPLOYEE)
+
+    def test_owner_can_deactivate_member(self):
+        self.authenticate()
+        employee = self.create_user('inactive-employee@example.com')
+        organization = self.create_organization_with_membership()
+        membership = OrganizationMembership.objects.create(
+            user=employee,
+            organization=organization,
+            role=OrganizationMembership.Role.EMPLOYEE,
+        )
+
+        response = self.client.delete(
+            f'/api/v1/organizations/{organization.id}/members/{membership.id}/'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        membership.refresh_from_db()
+        self.assertFalse(membership.is_active)
+
+    def test_member_cannot_manage_own_membership(self):
+        self.authenticate()
+        organization = self.create_organization_with_membership()
+        membership = OrganizationMembership.objects.get(
+            user=self.user,
+            organization=organization,
+        )
+
+        response = self.client.patch(
+            f'/api/v1/organizations/{organization.id}/members/{membership.id}/',
+            {'is_active': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        membership.refresh_from_db()
+        self.assertTrue(membership.is_active)
+
 
 class OrganizationWebSocketTests(APITransactionTestCase):
     reset_sequences = True

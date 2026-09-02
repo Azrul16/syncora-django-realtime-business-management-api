@@ -58,6 +58,11 @@ python manage.py runserver
 - `GET /api/v1/organizations/{id}/`
 - `PATCH /api/v1/organizations/{id}/`
 - `GET /api/v1/organizations/{id}/members/`
+- `POST /api/v1/organizations/{id}/members/`
+- `PATCH /api/v1/organizations/{id}/members/{membership_id}/`
+- `DELETE /api/v1/organizations/{id}/members/{membership_id}/`
+
+Organization owners and admins can manage members. Admins can manage non-owner members, while only owners can assign or change owner memberships.
 
 ## WebSockets
 
