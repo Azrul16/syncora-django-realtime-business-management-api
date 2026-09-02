@@ -3,7 +3,22 @@ from rest_framework import serializers
 from apps.branches.models import Branch
 from apps.organizations.models import Organization
 
-from .models import Expense
+from .models import Expense, ExpenseCategory
+
+
+class ExpenseCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseCategory
+        fields = [
+            'id',
+            'organization',
+            'name',
+            'description',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class ExpenseSerializer(serializers.ModelSerializer):

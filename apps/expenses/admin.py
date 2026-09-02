@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Expense
+from .models import Expense, ExpenseCategory
+
+
+@admin.register(ExpenseCategory)
+class ExpenseCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'organization', 'is_active', 'created_at')
+    list_filter = ('is_active', 'organization')
+    search_fields = ('name', 'description', 'organization__name')
 
 
 @admin.register(Expense)

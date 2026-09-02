@@ -1,6 +1,31 @@
 from django.db import models
 
 
+class ExpenseCategory(models.Model):
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='expense_categories',
+    )
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['organization', 'name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['organization', 'name'],
+                name='unique_expense_category_name_per_organization',
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Expense(models.Model):
     class Category(models.TextChoices):
         RENT = 'RENT', 'Rent'
