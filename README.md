@@ -72,6 +72,11 @@ python manage.py runserver
 - `GET /api/v1/purchases/`
 - `POST /api/v1/purchases/`
 - `POST /api/v1/purchases/{id}/receive/`
+- `GET /api/v1/customers/`
+- `POST /api/v1/customers/`
+- `GET /api/v1/sales/`
+- `POST /api/v1/sales/`
+- `POST /api/v1/sales/{id}/complete/`
 
 Organization owners and admins can manage members. Admins can manage non-owner members, while only owners can assign or change owner memberships.
 Organization owners, admins, and managers can manage operational business records. Employees can read organization data but cannot create or update these records.
@@ -100,6 +105,21 @@ When an organization is updated through the API, connected clients receive:
   "data": {
     "id": 1,
     "name": "Example Organization"
+  }
+}
+```
+
+Inventory changes from completed sales are also broadcast to connected organization clients:
+
+```json
+{
+  "type": "inventory.stock_updated",
+  "data": {
+    "id": 1,
+    "branch": 1,
+    "product": 1,
+    "quantity": "16.00",
+    "is_low_stock": false
   }
 }
 ```

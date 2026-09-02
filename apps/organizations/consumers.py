@@ -30,6 +30,14 @@ class OrganizationConsumer(AsyncWebsocketConsumer):
             }
         )
 
+    async def inventory_stock_updated(self, event):
+        await self.send_json(
+            {
+                'type': 'inventory.stock_updated',
+                'data': event['data'],
+            }
+        )
+
     async def send_json(self, content):
         await self.send(text_data=json.dumps(content))
 
