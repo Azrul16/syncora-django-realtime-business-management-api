@@ -42,34 +42,31 @@ class Sale(models.Model):
 
     @transaction.atomic
     def complete(self):
-        from apps.inventory.events import broadcast_stock_updated
-        from apps.inventory.models import InventoryStock
+        from apps.inventory.models import StockMovement
+        from apps.inventory.services import decrease_stock
         from django.core.exceptions import ValidationError
         from django.utils import timezone
 
         if self.status == self.Status.COMPLETED:
             return
 
-        touched_stocks = []
         for item in self.items.select_related('product'):
-            stock = (
-                InventoryStock.objects.select_for_update()
-                .filter(branch=self.branch, product=item.product)
-                .order_by()
-                .first()
-            )
-            if not stock or stock.quantity < item.quantity:
+            try:
+                decrease_stock(
+                    branch=self.branch,
+                    product_variant=item.product_variant,
+                    product=item.product,
+                    quantity=item.quantity,
+                    movement_type=StockMovement.MovementType.SALE,
+                    reference=self.reference,
+                    note='Sale completed.',
+                )
+            except ValidationError:
                 raise ValidationError(f'Insufficient stock for {item.product}.')
-            stock.quantity -= item.quantity
-            stock.save(update_fields=['quantity', 'updated_at'])
-            touched_stocks.append(stock)
 
         self.status = self.Status.COMPLETED
         self.completed_at = timezone.now()
         self.save(update_fields=['status', 'completed_at', 'updated_at'])
-
-        for stock in touched_stocks:
-            broadcast_stock_updated(stock)
 
     def __str__(self):
         return self.reference or f'Sale #{self.pk}'
@@ -81,6 +78,13 @@ class SaleItem(models.Model):
         'products.Product',
         on_delete=models.PROTECT,
         related_name='sale_items',
+    )
+    product_variant = models.ForeignKey(
+        'products.ProductVariant',
+        on_delete=models.PROTECT,
+        related_name='sale_items',
+        null=True,
+        blank=True,
     )
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)

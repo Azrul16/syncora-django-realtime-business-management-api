@@ -182,6 +182,40 @@ class InventoryStockAPITests(APITestCase):
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(response.data['results'][0]['product_variant'], self.variant.id)
 
+    def test_branch_can_track_multiple_variants_for_same_product(self):
+        self.authenticate()
+        second_variant = ProductVariant.objects.create(
+            product=self.product,
+            name='Strip',
+            sku='PARA-1-STRIP',
+        )
+
+        first_response = self.client.post(
+            '/api/v1/inventory/',
+            {
+                'branch': self.branch.id,
+                'product_variant': self.variant.id,
+                'quantity': '10.00',
+            },
+            format='json',
+        )
+        second_response = self.client.post(
+            '/api/v1/inventory/',
+            {
+                'branch': self.branch.id,
+                'product_variant': second_variant.id,
+                'quantity': '15.00',
+            },
+            format='json',
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            InventoryStock.objects.filter(branch=self.branch, product=self.product).count(),
+            2,
+        )
+
     def test_stock_requires_branch_and_product_from_same_organization(self):
         other_organization = Organization.objects.create(name='Other Org')
         other_product = Product.objects.create(

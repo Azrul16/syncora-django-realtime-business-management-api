@@ -40,21 +40,23 @@ class Purchase(models.Model):
 
     @transaction.atomic
     def receive(self):
-        from apps.inventory.models import InventoryStock
+        from apps.inventory.services import increase_stock
+        from apps.inventory.models import StockMovement
         from django.utils import timezone
 
         if self.status == self.Status.RECEIVED:
             return
 
         for item in self.items.select_related('product'):
-            stock, _ = InventoryStock.objects.get_or_create(
-                organization=self.organization,
+            increase_stock(
                 branch=self.branch,
+                product_variant=item.product_variant,
                 product=item.product,
-                defaults={'quantity': 0},
+                quantity=item.quantity,
+                movement_type=StockMovement.MovementType.PURCHASE,
+                reference=self.reference,
+                note='Purchase received.',
             )
-            stock.quantity += item.quantity
-            stock.save(update_fields=['quantity', 'updated_at'])
 
         self.status = self.Status.RECEIVED
         self.received_at = timezone.now()
@@ -70,6 +72,13 @@ class PurchaseItem(models.Model):
         'products.Product',
         on_delete=models.PROTECT,
         related_name='purchase_items',
+    )
+    product_variant = models.ForeignKey(
+        'products.ProductVariant',
+        on_delete=models.PROTECT,
+        related_name='purchase_items',
+        null=True,
+        blank=True,
     )
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     unit_cost = models.DecimalField(max_digits=12, decimal_places=2)

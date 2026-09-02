@@ -42,6 +42,7 @@ class InventoryStock(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['branch', 'product'],
+                condition=models.Q(product_variant__isnull=True),
                 name='unique_inventory_stock_per_branch_product',
             ),
             models.UniqueConstraint(

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.branches.models import Branch
-from apps.products.models import Product
+from apps.products.models import Product, ProductVariant
 from apps.suppliers.models import Supplier
 
 from .models import Purchase, PurchaseItem
@@ -12,7 +12,7 @@ class PurchaseItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseItem
-        fields = ['id', 'product', 'quantity', 'unit_cost', 'line_total']
+        fields = ['id', 'product', 'product_variant', 'quantity', 'unit_cost', 'line_total']
         read_only_fields = ['id', 'line_total']
 
 
@@ -53,6 +53,9 @@ class PurchaseSerializer(serializers.ModelSerializer):
         self.fields['items'].child.fields['product'].queryset = Product.objects.filter(
             organization_id__in=organizations
         )
+        self.fields['items'].child.fields['product_variant'].queryset = ProductVariant.objects.filter(
+            product__organization_id__in=organizations
+        )
 
     def validate(self, attrs):
         branch = attrs.get('branch') or getattr(self.instance, 'branch', None)
@@ -64,8 +67,11 @@ class PurchaseSerializer(serializers.ModelSerializer):
 
         for item in items:
             product = item['product']
+            product_variant = item.get('product_variant')
             if branch and product.organization_id != branch.organization_id:
                 raise serializers.ValidationError('All products must belong to the branch organization.')
+            if product_variant and product_variant.product_id != product.id:
+                raise serializers.ValidationError('Product variant must belong to its line item product.')
 
         return attrs
 
