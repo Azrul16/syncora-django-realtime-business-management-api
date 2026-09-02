@@ -9,6 +9,7 @@ class Branch(models.Model):
         related_name='branches',
     )
     name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, blank=True)
     slug = models.SlugField(max_length=255)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
@@ -23,6 +24,11 @@ class Branch(models.Model):
             models.UniqueConstraint(
                 fields=['organization', 'slug'],
                 name='unique_branch_slug_per_organization',
+            ),
+            models.UniqueConstraint(
+                fields=['organization', 'code'],
+                condition=models.Q(code__gt=''),
+                name='unique_branch_code_per_organization',
             ),
         ]
 

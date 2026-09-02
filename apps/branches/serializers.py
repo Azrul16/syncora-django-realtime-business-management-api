@@ -10,6 +10,7 @@ class BranchSerializer(serializers.ModelSerializer):
             'id',
             'organization',
             'name',
+            'code',
             'slug',
             'email',
             'phone',

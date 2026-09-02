@@ -65,8 +65,15 @@ python manage.py runserver
 - `POST /api/v1/branches/`
 - `GET /api/v1/products/`
 - `POST /api/v1/products/`
-- `GET /api/v1/inventory-stocks/`
-- `POST /api/v1/inventory-stocks/`
+- `GET /api/v1/categories/`
+- `POST /api/v1/categories/`
+- `GET /api/v1/product-variants/`
+- `POST /api/v1/product-variants/`
+- `GET /api/v1/inventory/`
+- `POST /api/v1/inventory/`
+- `POST /api/v1/inventory/{id}/increase/`
+- `POST /api/v1/inventory/{id}/decrease/`
+- `GET /api/v1/stock-movements/`
 - `GET /api/v1/suppliers/`
 - `POST /api/v1/suppliers/`
 - `GET /api/v1/purchases/`
@@ -83,6 +90,7 @@ python manage.py runserver
 
 Organization owners and admins can manage members. Admins can manage non-owner members, while only owners can assign or change owner memberships.
 Organization owners, admins, and managers can manage operational business records. Employees can read organization data but cannot create or update these records.
+Inventory quantity changes go through a service layer that records stock movement history and rejects negative stock.
 
 ## WebSockets
 
@@ -93,6 +101,12 @@ ws://localhost:8000/ws/organizations/{organization_id}/?token={access_token}
 ```
 
 The token must be a valid JWT access token for a user with an active membership in the organization. On connect, the server sends:
+
+Inventory-specific clients can also connect to:
+
+```text
+ws://localhost:8000/ws/organizations/{organization_id}/inventory/?token={access_token}
+```
 
 ```json
 {

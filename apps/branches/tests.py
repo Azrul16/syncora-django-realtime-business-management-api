@@ -42,6 +42,7 @@ class BranchAPITests(APITestCase):
             {
                 'organization': self.organization.id,
                 'name': 'Dhaka Central',
+                'code': 'DHK',
                 'email': 'dhaka@syncora.local',
                 'phone': '01700000001',
                 'address': 'Dhaka',
@@ -65,7 +66,7 @@ class BranchAPITests(APITestCase):
 
         response = self.client.post(
             '/api/v1/branches/',
-            {'organization': self.organization.id, 'name': 'Chittagong'},
+            {'organization': self.organization.id, 'name': 'Chittagong', 'code': 'CTG'},
             format='json',
         )
 
@@ -80,7 +81,7 @@ class BranchAPITests(APITestCase):
         list_response = self.client.get('/api/v1/branches/')
         create_response = self.client.post(
             '/api/v1/branches/',
-            {'organization': self.organization.id, 'name': 'Blocked Branch'},
+            {'organization': self.organization.id, 'name': 'Blocked Branch', 'code': 'BLOCKED'},
             format='json',
         )
 

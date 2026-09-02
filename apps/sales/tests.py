@@ -89,10 +89,15 @@ class SaleAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.stock.refresh_from_db()
         self.assertEqual(str(self.stock.quantity), '16.00')
-        sync_group_send.assert_called_once()
-        self.assertEqual(sync_group_send.call_args.args[0], f'organization_{self.organization.id}')
-        self.assertEqual(sync_group_send.call_args.args[1]['type'], 'inventory.stock_updated')
-        self.assertEqual(sync_group_send.call_args.args[1]['data']['quantity'], '16.00')
+        self.assertEqual(sync_group_send.call_count, 2)
+        groups = {call.args[0] for call in sync_group_send.call_args_list}
+        self.assertEqual(
+            groups,
+            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_inventory'},
+        )
+        event = sync_group_send.call_args_list[0].args[1]
+        self.assertEqual(event['type'], 'inventory.stock_updated')
+        self.assertEqual(event['data']['quantity'], '16.00')
 
     def test_completing_sale_twice_does_not_decrement_stock_twice(self):
         self.authenticate()

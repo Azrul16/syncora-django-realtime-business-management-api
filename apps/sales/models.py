@@ -55,6 +55,7 @@ class Sale(models.Model):
             stock = (
                 InventoryStock.objects.select_for_update()
                 .filter(branch=self.branch, product=item.product)
+                .order_by()
                 .first()
             )
             if not stock or stock.quantity < item.quantity:

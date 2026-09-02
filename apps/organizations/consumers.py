@@ -52,3 +52,21 @@ class OrganizationConsumer(AsyncWebsocketConsumer):
             organization_id=self.organization_id,
             is_active=True,
         ).exists()
+
+
+class OrganizationInventoryConsumer(OrganizationConsumer):
+    async def connect(self):
+        self.organization_id = self.scope['url_route']['kwargs']['organization_id']
+        self.group_name = f'organization_{self.organization_id}'
+        self.inventory_group_name = f'organization_{self.organization_id}_inventory'
+
+        if not await self.can_connect():
+            await self.close(code=4403)
+            return
+
+        await self.channel_layer.group_add(self.inventory_group_name, self.channel_name)
+        await self.accept()
+        await self.send_json({'type': 'connection.ready'})
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.inventory_group_name, self.channel_name)
