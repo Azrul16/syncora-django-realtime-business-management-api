@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from apps.branches.models import Branch
 from apps.organizations.models import Organization, OrganizationMembership
 
-from .models import Expense
+from .models import Expense, ExpenseCategory
 
 
 class ExpenseAPITests(APITestCase):
@@ -23,6 +23,7 @@ class ExpenseAPITests(APITestCase):
             role=OrganizationMembership.Role.OWNER,
         )
         self.branch = Branch.objects.create(organization=self.organization, name='Dhaka')
+        self.category = ExpenseCategory.objects.create(organization=self.organization, name='Rent')
 
     def authenticate(self, user=None):
         self.client.force_authenticate(user=user or self.user)
@@ -44,7 +45,7 @@ class ExpenseAPITests(APITestCase):
             {
                 'organization': self.organization.id,
                 'branch': self.branch.id,
-                'category': Expense.Category.RENT,
+                'category': self.category.id,
                 'title': 'Office Rent',
                 'amount': '15000.00',
                 'expense_date': date.today().isoformat(),
@@ -53,9 +54,12 @@ class ExpenseAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Expense.objects.filter(title='Office Rent').exists())
+        expense = Expense.objects.get(title='Office Rent')
+        self.assertRegex(expense.expense_number, r'^EXP-\d{6}$')
+        self.assertEqual(expense.status, Expense.Status.DRAFT)
+        self.assertEqual(expense.created_by, manager)
 
-    def test_employee_can_read_but_cannot_create_expense(self):
+    def test_employee_can_read_and_create_draft_expense(self):
         employee = self.create_user('expense-employee@example.com')
         OrganizationMembership.objects.create(
             user=employee,
@@ -76,6 +80,7 @@ class ExpenseAPITests(APITestCase):
             '/api/v1/expenses/',
             {
                 'organization': self.organization.id,
+                'category': self.category.id,
                 'title': 'Blocked Expense',
                 'amount': '100.00',
                 'expense_date': date.today().isoformat(),
@@ -85,4 +90,52 @@ class ExpenseAPITests(APITestCase):
 
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(list_response.data['count'], 1)
-        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data['status'], Expense.Status.DRAFT)
+
+    def test_manager_can_approve_expense(self):
+        manager = self.create_user('expense-approver@example.com')
+        OrganizationMembership.objects.create(
+            user=manager,
+            organization=self.organization,
+            role=OrganizationMembership.Role.MANAGER,
+        )
+        expense = Expense.objects.create(
+            organization=self.organization,
+            branch=self.branch,
+            category=self.category,
+            title='Approval Expense',
+            amount='100.00',
+            expense_date=date.today(),
+            created_by=self.user,
+        )
+        self.authenticate(manager)
+
+        response = self.client.post(f'/api/v1/expenses/{expense.id}/approve/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], Expense.Status.APPROVED)
+        expense.refresh_from_db()
+        self.assertEqual(expense.approved_by, manager)
+
+    def test_employee_cannot_approve_expense(self):
+        employee = self.create_user('expense-employee-approver@example.com')
+        OrganizationMembership.objects.create(
+            user=employee,
+            organization=self.organization,
+            role=OrganizationMembership.Role.EMPLOYEE,
+        )
+        expense = Expense.objects.create(
+            organization=self.organization,
+            branch=self.branch,
+            category=self.category,
+            title='Blocked Approval',
+            amount='100.00',
+            expense_date=date.today(),
+            created_by=employee,
+        )
+        self.authenticate(employee)
+
+        response = self.client.post(f'/api/v1/expenses/{expense.id}/approve/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

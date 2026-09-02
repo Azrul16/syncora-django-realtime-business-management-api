@@ -78,6 +78,7 @@ class OrganizationDashboardTests(APITestCase):
             title='Rent',
             amount='100.00',
             expense_date=date.today(),
+            status=Expense.Status.APPROVED,
         )
         self.authenticate()
 

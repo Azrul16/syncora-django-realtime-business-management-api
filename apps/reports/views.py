@@ -51,7 +51,10 @@ def organization_dashboard(request, organization_id):
         'purchase_total': decimal_sum(purchase_total),
         'sales_total': decimal_sum(sales_total),
         'expenses_total': decimal_sum(
-            Expense.objects.filter(organization=organization).aggregate(total=Sum('amount'))['total']
+            Expense.objects.filter(
+                organization=organization,
+                status=Expense.Status.APPROVED,
+            ).aggregate(total=Sum('amount'))['total']
         ),
     }
     serializer = OrganizationDashboardSerializer(data)
