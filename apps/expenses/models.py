@@ -27,6 +27,12 @@ class ExpenseCategory(models.Model):
 
 
 class Expense(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
     class Category(models.TextChoices):
         RENT = 'RENT', 'Rent'
         SALARY = 'SALARY', 'Salary'
@@ -59,6 +65,7 @@ class Expense(models.Model):
     title = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     expense_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     description = models.TextField(blank=True)
     reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
@@ -87,6 +94,32 @@ class Expense(models.Model):
         if not self.expense_number:
             self.expense_number = f'EXP-{self.pk:06d}'
             super().save(update_fields=['expense_number'])
+
+    def approve(self, user):
+        from django.core.exceptions import ValidationError
+
+        if self.status != self.Status.DRAFT:
+            raise ValidationError('Only draft expenses can be approved.')
+        self.status = self.Status.APPROVED
+        self.approved_by = user
+        self.save(update_fields=['status', 'approved_by', 'updated_at'])
+
+    def reject(self, user):
+        from django.core.exceptions import ValidationError
+
+        if self.status != self.Status.DRAFT:
+            raise ValidationError('Only draft expenses can be rejected.')
+        self.status = self.Status.REJECTED
+        self.approved_by = user
+        self.save(update_fields=['status', 'approved_by', 'updated_at'])
+
+    def cancel(self):
+        from django.core.exceptions import ValidationError
+
+        if self.status != self.Status.DRAFT:
+            raise ValidationError('Only draft expenses can be cancelled.')
+        self.status = self.Status.CANCELLED
+        self.save(update_fields=['status', 'updated_at'])
 
     def __str__(self):
         return f'{self.expense_number or self.title} - {self.amount}'
