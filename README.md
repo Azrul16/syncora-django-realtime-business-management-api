@@ -61,8 +61,20 @@ python manage.py runserver
 - `POST /api/v1/organizations/{id}/members/`
 - `PATCH /api/v1/organizations/{id}/members/{membership_id}/`
 - `DELETE /api/v1/organizations/{id}/members/{membership_id}/`
+- `GET /api/v1/branches/`
+- `POST /api/v1/branches/`
+- `GET /api/v1/products/`
+- `POST /api/v1/products/`
+- `GET /api/v1/inventory-stocks/`
+- `POST /api/v1/inventory-stocks/`
+- `GET /api/v1/suppliers/`
+- `POST /api/v1/suppliers/`
+- `GET /api/v1/purchases/`
+- `POST /api/v1/purchases/`
+- `POST /api/v1/purchases/{id}/receive/`
 
 Organization owners and admins can manage members. Admins can manage non-owner members, while only owners can assign or change owner memberships.
+Organization owners, admins, and managers can manage operational business records. Employees can read organization data but cannot create or update these records.
 
 ## WebSockets
 
