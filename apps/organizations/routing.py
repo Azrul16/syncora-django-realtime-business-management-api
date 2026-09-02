@@ -2,6 +2,7 @@ from django.urls import path
 
 from .consumers import (
     OrganizationConsumer,
+    OrganizationFinanceConsumer,
     OrganizationInventoryConsumer,
     OrganizationPaymentConsumer,
     OrganizationPurchaseConsumer,
@@ -14,4 +15,5 @@ websocket_urlpatterns = [
     path('ws/organizations/<int:organization_id>/purchases/', OrganizationPurchaseConsumer.as_asgi()),
     path('ws/organizations/<int:organization_id>/sales/', OrganizationSaleConsumer.as_asgi()),
     path('ws/organizations/<int:organization_id>/payments/', OrganizationPaymentConsumer.as_asgi()),
+    path('ws/organizations/<int:organization_id>/finance/', OrganizationFinanceConsumer.as_asgi()),
 ]

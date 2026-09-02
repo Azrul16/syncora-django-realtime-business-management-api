@@ -7,6 +7,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.finance.events import broadcast_finance_update
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
     get_active_membership,
@@ -88,6 +89,7 @@ class SaleViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer()
         serializer.complete(sale)
         broadcast_sale_event(sale, 'sale.completed')
+        broadcast_finance_update(sale.organization, 'sale.completed')
         return Response(self.get_serializer(sale).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -121,6 +123,7 @@ class SaleViewSet(viewsets.ModelViewSet):
             raise ValidationError({'payment': error.messages}) from error
 
         broadcast_payment_event(payment)
+        broadcast_finance_update(sale.organization, 'payment.created')
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
 
     def ensure_can_manage_sale(self, request, sale, action_name):

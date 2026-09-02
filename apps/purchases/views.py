@@ -5,6 +5,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.finance.events import broadcast_finance_update
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
     get_active_membership,
@@ -72,6 +73,7 @@ class PurchaseViewSet(viewsets.ModelViewSet):
             raise ValidationError({'status': error.messages}) from error
 
         broadcast_purchase_event(purchase, 'purchase.received')
+        broadcast_finance_update(purchase.organization, 'purchase.received')
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

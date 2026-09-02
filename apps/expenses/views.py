@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.finance.events import broadcast_finance_update
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
     get_active_membership,
@@ -66,6 +67,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
+        broadcast_finance_update(expense.organization, 'expense.approved')
         return Response(self.get_serializer(expense).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
