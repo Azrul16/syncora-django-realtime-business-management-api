@@ -64,10 +64,10 @@ python manage.py runserver
 Organization updates are exposed through:
 
 ```text
-ws://localhost:8000/ws/organizations/{organization_id}/
+ws://localhost:8000/ws/organizations/{organization_id}/?token={access_token}
 ```
 
-On connect, the server sends:
+The token must be a valid JWT access token for a user with an active membership in the organization. On connect, the server sends:
 
 ```json
 {

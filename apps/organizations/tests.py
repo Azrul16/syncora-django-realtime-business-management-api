@@ -1,10 +1,15 @@
 from unittest.mock import Mock, patch
 
+from asgiref.sync import async_to_sync
+from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from rest_framework.test import APITransactionTestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
+from config.asgi import application
 from .models import Organization, OrganizationMembership
 
 
@@ -184,3 +189,74 @@ class OrganizationAPITests(APITestCase):
         self.assertEqual(update_response.status_code, status.HTTP_404_NOT_FOUND)
         organization.refresh_from_db()
         self.assertEqual(organization.name, 'Syncora Demo Company')
+
+
+class OrganizationWebSocketTests(APITransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='socket-owner@example.com',
+            password='test-pass-1234',
+        )
+        self.organization = Organization.objects.create(name='Realtime Company')
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=self.organization,
+            role=OrganizationMembership.Role.OWNER,
+        )
+
+    def access_token_for(self, user):
+        refresh = RefreshToken.for_user(user)
+        return str(refresh.access_token)
+
+    async def connect(self, path):
+        communicator = WebsocketCommunicator(application, path)
+        connected, close_code = await communicator.connect()
+        return communicator, connected, close_code
+
+    def test_member_with_valid_token_can_connect_to_organization_socket(self):
+        token = self.access_token_for(self.user)
+
+        async def connect_and_receive():
+            communicator, connected, close_code = await self.connect(
+                f'/ws/organizations/{self.organization.id}/?token={token}'
+            )
+            message = await communicator.receive_json_from()
+            await communicator.disconnect()
+            return connected, close_code, message
+
+        connected, _, message = async_to_sync(connect_and_receive)()
+
+        self.assertTrue(connected)
+        self.assertEqual(message['type'], 'connection.ready')
+
+    def test_socket_rejects_missing_token(self):
+        async def connect():
+            _, connected, close_code = await self.connect(
+                f'/ws/organizations/{self.organization.id}/'
+            )
+            return connected, close_code
+
+        connected, close_code = async_to_sync(connect)()
+
+        self.assertFalse(connected)
+        self.assertEqual(close_code, 4403)
+
+    def test_socket_rejects_non_member_token(self):
+        outsider = get_user_model().objects.create_user(
+            email='socket-outsider@example.com',
+            password='test-pass-1234',
+        )
+        token = self.access_token_for(outsider)
+
+        async def connect():
+            _, connected, close_code = await self.connect(
+                f'/ws/organizations/{self.organization.id}/?token={token}'
+            )
+            return connected, close_code
+
+        connected, close_code = async_to_sync(connect)()
+
+        self.assertFalse(connected)
+        self.assertEqual(close_code, 4403)
