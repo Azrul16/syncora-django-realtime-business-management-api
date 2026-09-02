@@ -29,14 +29,28 @@ class ExpenseSerializer(serializers.ModelSerializer):
             'organization',
             'branch',
             'category',
+            'legacy_category',
+            'expense_number',
             'title',
             'amount',
             'expense_date',
+            'description',
+            'reference',
             'notes',
+            'created_by',
+            'approved_by',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id',
+            'legacy_category',
+            'expense_number',
+            'created_by',
+            'approved_by',
+            'created_at',
+            'updated_at',
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -50,10 +64,14 @@ class ExpenseSerializer(serializers.ModelSerializer):
         }
         self.fields['organization'].queryset = Organization.objects.filter(id__in=organizations)
         self.fields['branch'].queryset = Branch.objects.filter(organization_id__in=organizations)
+        self.fields['category'].queryset = ExpenseCategory.objects.filter(organization_id__in=organizations)
 
     def validate(self, attrs):
         organization = attrs.get('organization') or getattr(self.instance, 'organization', None)
         branch = attrs.get('branch') or getattr(self.instance, 'branch', None)
+        category = attrs.get('category') or getattr(self.instance, 'category', None)
         if organization and branch and branch.organization_id != organization.id:
             raise serializers.ValidationError('Branch must belong to the selected organization.')
+        if organization and category and category.organization_id != organization.id:
+            raise serializers.ValidationError('Category must belong to the selected organization.')
         return attrs

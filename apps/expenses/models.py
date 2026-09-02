@@ -47,16 +47,46 @@ class Expense(models.Model):
         null=True,
         blank=True,
     )
-    category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    category = models.ForeignKey(
+        ExpenseCategory,
+        on_delete=models.PROTECT,
+        related_name='expenses',
+        null=True,
+        blank=True,
+    )
+    legacy_category = models.CharField(max_length=20, choices=Category.choices, blank=True)
+    expense_number = models.CharField(max_length=20, unique=True, null=True, blank=True)
     title = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     expense_date = models.DateField()
+    description = models.TextField(blank=True)
+    reference = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        related_name='created_expenses',
+        null=True,
+        blank=True,
+    )
+    approved_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        related_name='approved_expenses',
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-expense_date', '-created_at']
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.expense_number:
+            self.expense_number = f'EXP-{self.pk:06d}'
+            super().save(update_fields=['expense_number'])
+
     def __str__(self):
-        return f'{self.title} - {self.amount}'
+        return f'{self.expense_number or self.title} - {self.amount}'

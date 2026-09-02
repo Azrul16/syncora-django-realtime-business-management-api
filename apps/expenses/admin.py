@@ -12,6 +12,6 @@ class ExpenseCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ('title', 'organization', 'branch', 'category', 'amount', 'expense_date')
+    list_display = ('expense_number', 'title', 'organization', 'branch', 'category', 'amount', 'expense_date')
     list_filter = ('category', 'organization', 'branch', 'expense_date')
-    search_fields = ('title', 'notes', 'organization__name', 'branch__name')
+    search_fields = ('expense_number', 'title', 'reference', 'description', 'notes', 'organization__name', 'branch__name')
