@@ -6,12 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Organization, OrganizationMembership
+from .permissions import IsOrganizationMemberReadOnlyOrAdmin
 from .serializers import OrganizationMembershipSerializer, OrganizationSerializer
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     serializer_class = OrganizationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrAdmin]
     filterset_fields = ['name', 'slug']
     search_fields = ['name', 'email', 'phone']
     ordering_fields = ['name', 'created_at', 'updated_at']
