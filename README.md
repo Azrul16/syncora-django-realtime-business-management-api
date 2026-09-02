@@ -1,30 +1,91 @@
 # Syncora Django Realtime Business Management API
 
-Syncora is intended to be a Django-based realtime business management API. This repository is currently in its initial setup stage.
+Syncora is a Django REST Framework API foundation for realtime business management workflows. It starts with accounts, organizations, organization memberships, role-based access concepts, JWT authentication, PostgreSQL settings, and Django Channels WebSocket support.
 
-## Planned Scope
+## Features
 
-- Django REST API for business management workflows
-- Realtime updates for operational data
-- Authentication and authorization
-- Modular apps for core business domains
-- API documentation and local development tooling
+- Email-based custom user model
+- Organization and membership models
+- Owner, admin, manager, and employee role foundation
+- Versioned REST API under `/api/v1/`
+- JWT authentication endpoints
+- Django Channels ASGI/WebSocket foundation
+- Environment-driven PostgreSQL configuration
 
 ## Getting Started
-
-Project code has not been scaffolded yet. Once the Django application is added, this section should include:
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+Create a local `.env` file from `.env.example`, then set your database password:
+
+```env
+SECRET_KEY=your-local-secret-key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+DB_NAME=syncora
+DB_USER=syncora_user
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+Create the PostgreSQL database and user:
+
+```sql
+CREATE DATABASE syncora;
+CREATE USER syncora_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE syncora TO syncora_user;
+```
+
+Run migrations and start the server:
+
+```bash
 python manage.py migrate
 python manage.py runserver
 ```
 
-## Repository Status
+## API
 
-This repository currently contains the project license and initial README. Application setup, dependencies, and documentation will be added as development progresses.
+- `POST /api/v1/auth/token/`
+- `POST /api/v1/auth/token/refresh/`
+- `GET /api/v1/organizations/`
+- `POST /api/v1/organizations/`
+- `GET /api/v1/organizations/{id}/`
+- `PATCH /api/v1/organizations/{id}/`
+- `GET /api/v1/organizations/{id}/members/`
+
+## WebSockets
+
+Organization updates are exposed through:
+
+```text
+ws://localhost:8000/ws/organizations/{organization_id}/
+```
+
+On connect, the server sends:
+
+```json
+{
+  "type": "connection.ready"
+}
+```
+
+When an organization is updated through the API, connected clients receive:
+
+```json
+{
+  "type": "organization.updated",
+  "data": {
+    "id": 1,
+    "name": "Example Organization"
+  }
+}
+```
 
 ## License
 
