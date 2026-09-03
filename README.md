@@ -268,6 +268,10 @@ Performance notes and the benchmark command are documented in:
 
 - `docs/performance.md`
 
+Deployment preparation notes are maintained in:
+
+- `docs/deployment.md`
+
 ## Future Improvements
 
 - Redis channel layer for multi-instance WebSocket deployment
