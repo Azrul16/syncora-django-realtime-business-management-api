@@ -9,6 +9,7 @@ from apps.inventory.models import InventoryStock
 from apps.branches.models import Branch
 from apps.products.models import Product
 from apps.sales.models import Payment, SaleItem
+from apps.suppliers.models import Supplier
 
 from .financial_summary import FinancialSummaryService, decimal_sum
 
@@ -341,4 +342,44 @@ class DashboardAnalyticsService:
             'total_paid': total_paid,
             'outstanding_due': max(total_spent - total_paid, decimal_sum(None)),
             'last_purchase': totals['last_purchase'].isoformat() if totals['last_purchase'] else None,
+        }
+
+    def get_supplier_analytics(self, limit=10):
+        purchases = self.financials.get_purchase_queryset()
+        supplier_rows = purchases.values('supplier_id', 'supplier__name').annotate(
+            purchase_orders=Count('id'),
+            total_purchase_value=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            average_order_value=Avg('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            last_purchase_date=Max('order_date'),
+        ).order_by('-total_purchase_value')[:limit]
+        return {
+            'total_suppliers': Supplier.objects.filter(organization=self.organization, is_active=True).count(),
+            'top_suppliers': [
+                {
+                    'supplier_id': row['supplier_id'],
+                    'supplier': row['supplier__name'],
+                    'purchase_orders': row['purchase_orders'],
+                    'total_purchase_value': decimal_sum(row['total_purchase_value']),
+                    'average_order_value': decimal_sum(row['average_order_value']),
+                    'last_purchase_date': row['last_purchase_date'].isoformat() if row['last_purchase_date'] else None,
+                }
+                for row in supplier_rows
+            ],
+        }
+
+    def get_supplier_summary(self, supplier):
+        purchases = self.financials.get_purchase_queryset().filter(supplier=supplier)
+        totals = purchases.aggregate(
+            purchase_orders=Count('id'),
+            total_purchase_value=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            average_order_value=Avg('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            last_purchase_date=Max('order_date'),
+        )
+        return {
+            'supplier_id': supplier.id,
+            'supplier': supplier.name,
+            'purchase_orders': totals['purchase_orders'],
+            'total_purchase_value': decimal_sum(totals['total_purchase_value']),
+            'average_order_value': decimal_sum(totals['average_order_value']),
+            'last_purchase_date': totals['last_purchase_date'].isoformat() if totals['last_purchase_date'] else None,
         }

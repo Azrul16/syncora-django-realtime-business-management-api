@@ -223,3 +223,11 @@ def dashboard_customers(request):
     service = get_dashboard_service(request)
     limit = int(request.query_params.get('limit', 10))
     return Response(serialize_money(service.get_customer_analytics(limit=limit)))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_suppliers(request):
+    service = get_dashboard_service(request)
+    limit = int(request.query_params.get('limit', 10))
+    return Response(serialize_money(service.get_supplier_analytics(limit=limit)))

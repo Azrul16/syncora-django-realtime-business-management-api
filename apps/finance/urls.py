@@ -19,4 +19,5 @@ urlpatterns = [
     path('dashboard/stock-value/', views.dashboard_stock_value, name='dashboard-stock-value'),
     path('dashboard/branches/', views.dashboard_branches, name='dashboard-branches'),
     path('dashboard/customers/', views.dashboard_customers, name='dashboard-customers'),
+    path('dashboard/suppliers/', views.dashboard_suppliers, name='dashboard-suppliers'),
 ]
