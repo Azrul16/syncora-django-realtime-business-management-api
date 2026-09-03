@@ -4,10 +4,11 @@ from datetime import timedelta
 
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes, throttle_scope
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.branches.models import Branch
 from apps.organizations.models import Organization
@@ -25,6 +26,11 @@ def serialize_money(value):
     if isinstance(value, dict):
         return {key: serialize_money(item) for key, item in value.items()}
     return value
+
+
+def report_throttles(view_func):
+    view_func = throttle_classes([ScopedRateThrottle])(view_func)
+    return throttle_scope('reports')(view_func)
 
 
 def get_organization_for_request(request):
@@ -111,6 +117,7 @@ def get_date_range_for_request(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def finance_summary(request):
     service = get_financial_service(request)
     return Response(serialize_money(service.get_summary()))
@@ -118,6 +125,7 @@ def finance_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def sales_summary(request):
     service = get_financial_service(request)
     return Response(serialize_money(service.get_sales_summary()))
@@ -125,6 +133,7 @@ def sales_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def expense_summary(request):
     service = get_financial_service(request)
     return Response(serialize_money(service.get_expense_summary()))
@@ -132,6 +141,7 @@ def expense_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def profit_summary(request):
     service = get_financial_service(request)
     return Response(serialize_money(service.get_profit_summary()))
@@ -139,6 +149,7 @@ def profit_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def cash_flow_summary(request):
     service = get_financial_service(request)
     return Response(serialize_money(service.get_cash_flow_summary()))

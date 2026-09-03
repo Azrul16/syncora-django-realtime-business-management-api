@@ -1,7 +1,8 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes, throttle_scope
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from .serializers import (
     ChangePasswordSerializer,
@@ -14,6 +15,8 @@ from .serializers import (
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([ScopedRateThrottle])
+@throttle_scope('auth')
 def login(request):
     serializer = LoginSerializer(data=request.data, context={'request': request})
     serializer.is_valid(raise_exception=True)
@@ -28,6 +31,8 @@ def login(request):
         ).data,
         status=status.HTTP_200_OK,
     )
+
+
 
 
 @api_view(['POST'])
