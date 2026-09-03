@@ -272,6 +272,10 @@ Deployment preparation notes are maintained in:
 
 - `docs/deployment.md`
 
+GitHub repository metadata guidance is maintained in:
+
+- `docs/github.md`
+
 ## Future Improvements
 
 - Redis channel layer for multi-instance WebSocket deployment
