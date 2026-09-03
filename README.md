@@ -56,6 +56,8 @@ The project is built as a portfolio-ready Django backend that demonstrates REST 
 
 Business actions publish through a centralized event dispatcher. The dispatcher creates activity records, optional notifications, and WebSocket messages for organization, branch, module, dashboard, and user notification groups.
 
+Architecture diagrams are available in `docs/architecture.md`.
+
 WebSocket endpoints:
 
 ```text
