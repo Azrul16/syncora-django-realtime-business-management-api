@@ -178,3 +178,33 @@ def dashboard_slow_moving_products(request):
     days = int(request.query_params.get('days', 30))
     limit = int(request.query_params.get('limit', 10))
     return Response(service.get_slow_moving_products(days=days, limit=limit))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_inventory_summary(request):
+    service = get_dashboard_service(request)
+    return Response(serialize_money(service.get_inventory_summary()))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_low_stock(request):
+    service = get_dashboard_service(request)
+    limit = int(request.query_params.get('limit', 20))
+    return Response(serialize_money(service.get_low_stock_items(limit=limit)))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_out_of_stock(request):
+    service = get_dashboard_service(request)
+    limit = int(request.query_params.get('limit', 20))
+    return Response(serialize_money(service.get_out_of_stock_items(limit=limit)))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stock_value(request):
+    service = get_dashboard_service(request)
+    return Response(serialize_money(service.get_stock_value()))

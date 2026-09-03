@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Avg, Count, DecimalField, F, Max, Sum
+from django.db.models import Avg, Case, Count, DecimalField, F, Max, Sum, When
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from django.utils import timezone
 
@@ -179,4 +179,69 @@ class DashboardAnalyticsService:
                 'sku': product.sku,
             }
             for product in products.order_by('name')[:limit]
+        ]
+
+    def get_inventory_summary(self):
+        inventory = self.get_inventory_queryset()
+        valued_inventory = inventory.annotate(
+            cost_price=Case(
+                When(product_variant__isnull=False, then=F('product_variant__cost_price')),
+                default=F('product__cost_price'),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+            sale_price=Case(
+                When(product_variant__isnull=False, then=F('product_variant__selling_price')),
+                default=F('product__selling_price'),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )
+        totals = valued_inventory.aggregate(
+            total_units=Sum('quantity', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            inventory_cost_value=Sum(
+                F('quantity') * F('cost_price'),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
+            potential_sale_value=Sum(
+                F('quantity') * F('sale_price'),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
+        )
+        return {
+            'total_units': decimal_sum(totals['total_units']),
+            'inventory_cost_value': decimal_sum(totals['inventory_cost_value']),
+            'potential_sale_value': decimal_sum(totals['potential_sale_value']),
+            'low_stock_products': inventory.filter(quantity__lte=F('reorder_level')).count(),
+            'out_of_stock_products': inventory.filter(quantity__lte=0).count(),
+        }
+
+    def get_low_stock_items(self, limit=20):
+        return self.serialize_inventory_items(
+            self.get_inventory_queryset().filter(quantity__lte=F('reorder_level')).order_by('quantity')[:limit]
+        )
+
+    def get_out_of_stock_items(self, limit=20):
+        return self.serialize_inventory_items(
+            self.get_inventory_queryset().filter(quantity__lte=0).order_by('product__name')[:limit]
+        )
+
+    def get_stock_value(self):
+        summary = self.get_inventory_summary()
+        return {
+            'inventory_cost_value': summary['inventory_cost_value'],
+            'potential_sale_value': summary['potential_sale_value'],
+        }
+
+    def serialize_inventory_items(self, items):
+        return [
+            {
+                'inventory_id': item.id,
+                'branch_id': item.branch_id,
+                'product_id': item.product_id,
+                'product': item.product.name,
+                'variant_id': item.product_variant_id,
+                'variant': item.product_variant.name if item.product_variant else '',
+                'quantity': item.quantity,
+                'reorder_level': item.reorder_level,
+            }
+            for item in items
         ]

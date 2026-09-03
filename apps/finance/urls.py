@@ -13,4 +13,8 @@ urlpatterns = [
     path('dashboard/profit-trend/', views.dashboard_profit_trend, name='dashboard-profit-trend'),
     path('dashboard/top-products/', views.dashboard_top_products, name='dashboard-top-products'),
     path('dashboard/slow-moving-products/', views.dashboard_slow_moving_products, name='dashboard-slow-moving-products'),
+    path('dashboard/inventory-summary/', views.dashboard_inventory_summary, name='dashboard-inventory-summary'),
+    path('dashboard/low-stock/', views.dashboard_low_stock, name='dashboard-low-stock'),
+    path('dashboard/out-of-stock/', views.dashboard_out_of_stock, name='dashboard-out-of-stock'),
+    path('dashboard/stock-value/', views.dashboard_stock_value, name='dashboard-stock-value'),
 ]
