@@ -277,6 +277,7 @@ Deployment preparation notes are maintained in:
 - `docs/postgresql-production.md`
 - `docs/static-media.md`
 - `docs/nginx.md`
+- `docs/https.md`
 
 GitHub repository metadata guidance is maintained in:
 

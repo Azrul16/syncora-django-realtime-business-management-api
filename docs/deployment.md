@@ -73,6 +73,7 @@ Detailed ASGI deployment notes are available in `docs/asgi-deployment.md`.
 Production PostgreSQL setup notes are available in `docs/postgresql-production.md`.
 Static and media deployment notes are available in `docs/static-media.md`.
 Nginx reverse proxy notes are available in `docs/nginx.md`.
+HTTPS and secure WebSocket notes are available in `docs/https.md`.
 
 ## WebSocket Scaling
 
