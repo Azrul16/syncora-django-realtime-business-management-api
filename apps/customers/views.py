@@ -1,6 +1,12 @@
+from decimal import Decimal
+
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from apps.finance.services.dashboard_analytics import DashboardAnalyticsService
 
 from apps.organizations.models import Organization
 from apps.organizations.permissions import (
@@ -10,6 +16,14 @@ from apps.organizations.permissions import (
 
 from .models import Customer
 from .serializers import CustomerSerializer
+
+
+def serialize_money(value):
+    if isinstance(value, Decimal):
+        return f'{value:.2f}'
+    if isinstance(value, dict):
+        return {key: serialize_money(item) for key, item in value.items()}
+    return value
 
 
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -40,3 +54,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 memberships__is_active=True,
             )
         return serializer
+
+    @action(detail=True, methods=['get'])
+    def summary(self, request, pk=None):
+        customer = self.get_object()
+        service = DashboardAnalyticsService(organization=customer.organization)
+        return Response(serialize_money(service.get_customer_summary(customer)))

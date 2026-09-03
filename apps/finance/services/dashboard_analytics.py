@@ -8,7 +8,7 @@ from apps.customers.models import Customer
 from apps.inventory.models import InventoryStock
 from apps.branches.models import Branch
 from apps.products.models import Product
-from apps.sales.models import SaleItem
+from apps.sales.models import Payment, SaleItem
 
 from .financial_summary import FinancialSummaryService, decimal_sum
 
@@ -286,3 +286,59 @@ class DashboardAnalyticsService:
                 }
             )
         return sorted(rows, key=lambda row: (row['revenue'], row['gross_profit']), reverse=True)
+
+    def get_customer_analytics(self, limit=10):
+        sales = self.financials.get_sales_queryset().filter(customer__isnull=False)
+        customer_rows = sales.values('customer_id', 'customer__name').annotate(
+            total_spent=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            orders=Count('id'),
+            last_purchase=Max('sale_date'),
+        ).order_by('-total_spent')[:limit]
+        totals = sales.aggregate(
+            total_spend=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            order_count=Count('id'),
+        )
+        repeat_customers = sales.values('customer_id').annotate(orders=Count('id')).filter(orders__gt=1).count()
+        customer_count = Customer.objects.filter(organization=self.organization, is_active=True).count()
+        average_spend = decimal_sum(totals['total_spend']) / customer_count if customer_count else decimal_sum(None)
+
+        return {
+            'total_customers': customer_count,
+            'new_customers': self.get_customer_queryset().count(),
+            'repeat_customers': repeat_customers,
+            'average_customer_spend': average_spend,
+            'outstanding_due': self.financials.get_payment_summary()['outstanding'],
+            'top_customers': [
+                {
+                    'customer_id': row['customer_id'],
+                    'customer': row['customer__name'],
+                    'total_spent': decimal_sum(row['total_spent']),
+                    'orders': row['orders'],
+                    'last_purchase': row['last_purchase'].isoformat() if row['last_purchase'] else None,
+                }
+                for row in customer_rows
+            ],
+        }
+
+    def get_customer_summary(self, customer):
+        sales = self.financials.get_sales_queryset().filter(customer=customer)
+        totals = sales.aggregate(
+            total_spent=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            total_orders=Count('id'),
+            last_purchase=Max('sale_date'),
+        )
+        total_paid = decimal_sum(
+            Payment.objects.filter(sale__in=sales).aggregate(
+                total=Sum('amount', output_field=DecimalField(max_digits=14, decimal_places=2))
+            )['total']
+        )
+        total_spent = decimal_sum(totals['total_spent'])
+        return {
+            'customer_id': customer.id,
+            'customer': customer.name,
+            'total_orders': totals['total_orders'],
+            'total_spent': total_spent,
+            'total_paid': total_paid,
+            'outstanding_due': max(total_spent - total_paid, decimal_sum(None)),
+            'last_purchase': totals['last_purchase'].isoformat() if totals['last_purchase'] else None,
+        }
