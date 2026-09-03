@@ -7,13 +7,13 @@ Syncora is an ASGI Django application because it serves both REST APIs and WebSo
 Recommended process:
 
 ```bash
-daphne config.asgi:application --bind 0.0.0.0 --port 8000
+daphne -b 127.0.0.1 -p 8000 config.asgi:application
 ```
 
 The repository includes a `Procfile`:
 
 ```text
-web: daphne config.asgi:application --bind 0.0.0.0 --port ${PORT:-8000}
+web: daphne -b 0.0.0.0 -p ${PORT:-8000} config.asgi:application
 ```
 
 ## Required Production Environment
@@ -66,6 +66,8 @@ EMAIL_USE_SSL=False
 - Use an ASGI server such as Daphne.
 - Put a reverse proxy or platform router in front of Daphne.
 - Keep `.env` and production secrets out of git.
+
+Detailed ASGI deployment notes are available in `docs/asgi-deployment.md`.
 
 ## WebSocket Scaling
 

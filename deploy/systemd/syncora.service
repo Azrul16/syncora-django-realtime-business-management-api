@@ -1,0 +1,16 @@
+[Unit]
+Description=Syncora ASGI application
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=syncora
+Group=www-data
+WorkingDirectory=/var/www/syncora
+EnvironmentFile=/etc/syncora/syncora.env
+ExecStart=/var/www/syncora/.venv/bin/daphne -b 127.0.0.1 -p 8000 config.asgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
