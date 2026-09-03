@@ -67,6 +67,9 @@ class ProductSerializer(serializers.ModelSerializer):
         category = attrs.get('category') or getattr(self.instance, 'category', None)
         if organization and category and category.organization_id != organization.id:
             raise serializers.ValidationError('Category must belong to the selected organization.')
+        for field in ['cost_price', 'selling_price']:
+            if attrs.get(field, 0) < 0:
+                raise serializers.ValidationError({field: f'{field} cannot be negative.'})
         return attrs
 
 
@@ -88,6 +91,12 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'organization', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        for field in ['cost_price', 'selling_price']:
+            if attrs.get(field, 0) < 0:
+                raise serializers.ValidationError({field: f'{field} cannot be negative.'})
+        return attrs
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -17,6 +17,14 @@ class SaleItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'unit_cost', 'line_total']
         extra_kwargs = {'product': {'required': False}}
 
+    def validate(self, attrs):
+        if attrs.get('quantity', 0) <= 0:
+            raise serializers.ValidationError({'quantity': 'Quantity must be greater than zero.'})
+        for field in ['unit_price', 'discount', 'tax']:
+            if attrs.get(field, 0) < 0:
+                raise serializers.ValidationError({field: f'{field} cannot be negative.'})
+        return attrs
+
 
 class PaymentSerializer(serializers.ModelSerializer):
     payment_status = serializers.CharField(source='sale.payment_status', read_only=True)
@@ -49,6 +57,11 @@ class PaymentSerializer(serializers.ModelSerializer):
             'due_amount',
             'created_at',
         ]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Amount must be greater than zero.')
+        return value
 
 
 class SaleSerializer(serializers.ModelSerializer):
@@ -127,6 +140,9 @@ class SaleSerializer(serializers.ModelSerializer):
 
         if branch and customer and branch.organization_id != customer.organization_id:
             raise serializers.ValidationError('Branch and customer must belong to the same organization.')
+        for field in ['discount_amount', 'tax_amount']:
+            if attrs.get(field, 0) < 0:
+                raise serializers.ValidationError({field: f'{field} cannot be negative.'})
 
         for item in items:
             product = item.get('product')

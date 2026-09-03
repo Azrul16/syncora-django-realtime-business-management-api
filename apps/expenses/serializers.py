@@ -76,4 +76,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Branch must belong to the selected organization.')
         if organization and category and category.organization_id != organization.id:
             raise serializers.ValidationError('Category must belong to the selected organization.')
+        if attrs.get('amount', 0) <= 0:
+            raise serializers.ValidationError({'amount': 'Amount must be greater than zero.'})
         return attrs

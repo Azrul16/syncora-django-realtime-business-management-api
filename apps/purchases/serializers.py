@@ -16,6 +16,14 @@ class PurchaseItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'line_total']
         extra_kwargs = {'product': {'required': False}}
 
+    def validate(self, attrs):
+        if attrs.get('quantity', 0) <= 0:
+            raise serializers.ValidationError({'quantity': 'Quantity must be greater than zero.'})
+        for field in ['unit_cost', 'discount', 'tax']:
+            if attrs.get(field, 0) < 0:
+                raise serializers.ValidationError({field: f'{field} cannot be negative.'})
+        return attrs
+
 
 class PurchaseSerializer(serializers.ModelSerializer):
     items = PurchaseItemSerializer(many=True)
@@ -86,6 +94,9 @@ class PurchaseSerializer(serializers.ModelSerializer):
 
         if branch and supplier and branch.organization_id != supplier.organization_id:
             raise serializers.ValidationError('Branch and supplier must belong to the same organization.')
+        for field in ['discount_amount', 'tax_amount', 'shipping_cost']:
+            if attrs.get(field, 0) < 0:
+                raise serializers.ValidationError({field: f'{field} cannot be negative.'})
 
         for item in items:
             product = item.get('product')

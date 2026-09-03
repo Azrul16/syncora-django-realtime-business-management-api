@@ -35,6 +35,12 @@ class InventoryStockSerializer(serializers.ModelSerializer):
             attrs['product'] = product
         if branch and product and branch.organization_id != product.organization_id:
             raise serializers.ValidationError('Inventory item must belong to the branch organization.')
+        quantity = attrs.get('quantity')
+        reorder_level = attrs.get('reorder_level')
+        if quantity is not None and quantity < 0:
+            raise serializers.ValidationError({'quantity': 'Quantity cannot be negative.'})
+        if reorder_level is not None and reorder_level < 0:
+            raise serializers.ValidationError({'reorder_level': 'Reorder level cannot be negative.'})
         return attrs
 
     def create(self, validated_data):
