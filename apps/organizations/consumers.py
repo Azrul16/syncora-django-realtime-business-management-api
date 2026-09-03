@@ -23,9 +23,14 @@ class OrganizationConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def organization_updated(self, event):
+        await self.send_json({'event': 'organization.updated', 'data': event['data']})
+
+    async def realtime_event(self, event):
         await self.send_json(
             {
-                'type': 'organization.updated',
+                'event': event['event'],
+                'timestamp': event['timestamp'],
+                'organization_id': event['organization_id'],
                 'data': event['data'],
             }
         )

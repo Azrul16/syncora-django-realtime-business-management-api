@@ -8,6 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 
+from apps.notifications.event_types import EventType, build_realtime_event
+
 from .models import Organization, OrganizationMembership
 from .permissions import get_active_membership
 from .permissions import IsOrganizationMemberReadOnlyOrAdmin
@@ -46,10 +48,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         if channel_layer:
             async_to_sync(channel_layer.group_send)(
                 f'organization_{organization.id}',
-                {
-                    'type': 'organization.updated',
-                    'data': OrganizationSerializer(organization).data,
-                },
+                build_realtime_event(
+                    EventType.ORGANIZATION_UPDATED,
+                    organization.id,
+                    OrganizationSerializer(organization).data,
+                ),
             )
 
     @action(detail=True, methods=['get', 'post'])

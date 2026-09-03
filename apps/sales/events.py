@@ -1,16 +1,18 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from apps.notifications.event_types import EventType, build_realtime_event
+
 
 def broadcast_sale_event(sale, event_type):
     channel_layer = get_channel_layer()
     if not channel_layer:
         return
 
-    event = {
-        'type': 'sale.event',
-        'data': {
-            'event': event_type,
+    event = build_realtime_event(
+        event_type,
+        sale.organization_id,
+        {
             'sale_id': sale.id,
             'sale_number': sale.sale_number,
             'branch_id': sale.branch_id,
@@ -21,7 +23,7 @@ def broadcast_sale_event(sale, event_type):
             'paid_amount': str(sale.paid_amount),
             'due_amount': str(sale.due_amount),
         },
-    }
+    )
     async_to_sync(channel_layer.group_send)(f'organization_{sale.organization_id}', event)
     async_to_sync(channel_layer.group_send)(f'organization_{sale.organization_id}_sales', event)
 
@@ -32,10 +34,10 @@ def broadcast_payment_event(payment):
         return
 
     sale = payment.sale
-    event = {
-        'type': 'payment.event',
-        'data': {
-            'event': 'payment.created',
+    event = build_realtime_event(
+        EventType.PAYMENT_CREATED,
+        sale.organization_id,
+        {
             'payment_id': payment.id,
             'sale_id': sale.id,
             'sale_number': sale.sale_number,
@@ -45,6 +47,6 @@ def broadcast_payment_event(payment):
             'paid_amount': str(sale.paid_amount),
             'due_amount': str(sale.due_amount),
         },
-    }
+    )
     async_to_sync(channel_layer.group_send)(f'organization_{sale.organization_id}', event)
     async_to_sync(channel_layer.group_send)(f'organization_{sale.organization_id}_payments', event)

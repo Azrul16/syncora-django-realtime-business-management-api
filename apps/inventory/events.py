@@ -1,15 +1,19 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from apps.notifications.event_types import EventType, build_realtime_event
+
 
 def broadcast_stock_updated(stock, movement=None):
     channel_layer = get_channel_layer()
     if not channel_layer:
         return
 
-    event = {
-        'type': 'inventory.stock_updated',
-        'data': {
+    event_type = EventType.INVENTORY_LOW_STOCK if stock.is_low_stock else EventType.INVENTORY_UPDATED
+    event = build_realtime_event(
+        event_type,
+        stock.organization_id,
+        {
             'id': stock.id,
             'inventory_id': stock.id,
             'organization': stock.organization_id,
@@ -26,6 +30,6 @@ def broadcast_stock_updated(stock, movement=None):
             'movement_quantity': str(movement.quantity) if movement else None,
             'movement_type': movement.movement_type if movement else None,
         },
-    }
+    )
     async_to_sync(channel_layer.group_send)(f'organization_{stock.organization_id}', event)
     async_to_sync(channel_layer.group_send)(f'organization_{stock.organization_id}_inventory', event)
