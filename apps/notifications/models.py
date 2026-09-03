@@ -2,6 +2,17 @@ from django.db import models
 from django.utils import timezone
 
 
+class NotificationQuerySet(models.QuerySet):
+    def unread(self):
+        return self.filter(is_read=False)
+
+    def read(self):
+        return self.filter(is_read=True)
+
+    def mark_all_read(self):
+        return self.unread().update(is_read=True, read_at=timezone.now())
+
+
 class Notification(models.Model):
     organization = models.ForeignKey(
         'organizations.Organization',
@@ -22,6 +33,8 @@ class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
+    objects = NotificationQuerySet.as_manager()
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
@@ -33,6 +46,12 @@ class Notification(models.Model):
         if not self.is_read:
             self.is_read = True
             self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
+
+    def mark_unread(self):
+        if self.is_read:
+            self.is_read = False
+            self.read_at = None
             self.save(update_fields=['is_read', 'read_at'])
 
     def __str__(self):
