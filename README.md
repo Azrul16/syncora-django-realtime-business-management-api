@@ -290,6 +290,7 @@ Deployment preparation notes are maintained in:
 - `docs/https.md`
 - `docs/cicd.md`
 - `docs/backups.md`
+- `docs/production-verification.md`
 
 GitHub repository metadata guidance is maintained in:
 
