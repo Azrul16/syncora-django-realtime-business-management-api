@@ -20,6 +20,8 @@ from .services.financial_summary import FinancialSummaryService
 def serialize_money(value):
     if isinstance(value, Decimal):
         return f'{value:.2f}'
+    if isinstance(value, list):
+        return [serialize_money(item) for item in value]
     if isinstance(value, dict):
         return {key: serialize_money(item) for key, item in value.items()}
     return value
