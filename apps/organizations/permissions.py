@@ -16,6 +16,15 @@ def get_active_membership(user, organization):
     ).first()
 
 
+def user_has_permission(user, organization, permission):
+    membership = get_active_membership(user, organization)
+    return bool(membership and membership.has_permission(permission))
+
+
+def require_permission(user, organization, permission):
+    return user_has_permission(user, organization, permission)
+
+
 class IsOrganizationMember(BasePermission):
     def has_object_permission(self, request, view, obj):
         organization = getattr(obj, 'organization', obj)

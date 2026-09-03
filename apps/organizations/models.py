@@ -29,7 +29,106 @@ class OrganizationMembership(models.Model):
         OWNER = 'OWNER', 'Owner'
         ADMIN = 'ADMIN', 'Admin'
         MANAGER = 'MANAGER', 'Manager'
+        SALES = 'SALES', 'Sales'
+        INVENTORY_MANAGER = 'INVENTORY_MANAGER', 'Inventory manager'
+        ACCOUNTANT = 'ACCOUNTANT', 'Accountant'
         EMPLOYEE = 'EMPLOYEE', 'Employee'
+
+    class Permission:
+        USERS_MANAGE = 'users.manage'
+        BRANCHES_MANAGE = 'branches.manage'
+        PRODUCTS_VIEW = 'products.view'
+        PRODUCTS_MANAGE = 'products.manage'
+        INVENTORY_VIEW = 'inventory.view'
+        INVENTORY_ADJUST = 'inventory.adjust'
+        PURCHASES_CREATE = 'purchases.create'
+        PURCHASES_RECEIVE = 'purchases.receive'
+        SALES_CREATE = 'sales.create'
+        SALES_COMPLETE = 'sales.complete'
+        PAYMENTS_CREATE = 'payments.create'
+        EXPENSES_CREATE = 'expenses.create'
+        EXPENSES_APPROVE = 'expenses.approve'
+        REPORTS_VIEW = 'reports.view'
+        FINANCE_VIEW = 'finance.view'
+
+    ROLE_PERMISSIONS = {
+        Role.OWNER: {
+            Permission.USERS_MANAGE,
+            Permission.BRANCHES_MANAGE,
+            Permission.PRODUCTS_VIEW,
+            Permission.PRODUCTS_MANAGE,
+            Permission.INVENTORY_VIEW,
+            Permission.INVENTORY_ADJUST,
+            Permission.PURCHASES_CREATE,
+            Permission.PURCHASES_RECEIVE,
+            Permission.SALES_CREATE,
+            Permission.SALES_COMPLETE,
+            Permission.PAYMENTS_CREATE,
+            Permission.EXPENSES_CREATE,
+            Permission.EXPENSES_APPROVE,
+            Permission.REPORTS_VIEW,
+            Permission.FINANCE_VIEW,
+        },
+        Role.ADMIN: {
+            Permission.USERS_MANAGE,
+            Permission.BRANCHES_MANAGE,
+            Permission.PRODUCTS_VIEW,
+            Permission.PRODUCTS_MANAGE,
+            Permission.INVENTORY_VIEW,
+            Permission.INVENTORY_ADJUST,
+            Permission.PURCHASES_CREATE,
+            Permission.PURCHASES_RECEIVE,
+            Permission.SALES_CREATE,
+            Permission.SALES_COMPLETE,
+            Permission.PAYMENTS_CREATE,
+            Permission.EXPENSES_CREATE,
+            Permission.EXPENSES_APPROVE,
+            Permission.REPORTS_VIEW,
+            Permission.FINANCE_VIEW,
+        },
+        Role.MANAGER: {
+            Permission.PRODUCTS_VIEW,
+            Permission.PRODUCTS_MANAGE,
+            Permission.INVENTORY_VIEW,
+            Permission.INVENTORY_ADJUST,
+            Permission.PURCHASES_CREATE,
+            Permission.PURCHASES_RECEIVE,
+            Permission.SALES_CREATE,
+            Permission.SALES_COMPLETE,
+            Permission.PAYMENTS_CREATE,
+            Permission.EXPENSES_CREATE,
+            Permission.EXPENSES_APPROVE,
+            Permission.REPORTS_VIEW,
+            Permission.FINANCE_VIEW,
+        },
+        Role.SALES: {
+            Permission.PRODUCTS_VIEW,
+            Permission.INVENTORY_VIEW,
+            Permission.SALES_CREATE,
+            Permission.SALES_COMPLETE,
+            Permission.PAYMENTS_CREATE,
+        },
+        Role.INVENTORY_MANAGER: {
+            Permission.PRODUCTS_VIEW,
+            Permission.PRODUCTS_MANAGE,
+            Permission.INVENTORY_VIEW,
+            Permission.INVENTORY_ADJUST,
+            Permission.PURCHASES_CREATE,
+            Permission.PURCHASES_RECEIVE,
+        },
+        Role.ACCOUNTANT: {
+            Permission.PRODUCTS_VIEW,
+            Permission.EXPENSES_CREATE,
+            Permission.EXPENSES_APPROVE,
+            Permission.REPORTS_VIEW,
+            Permission.FINANCE_VIEW,
+        },
+        Role.EMPLOYEE: {
+            Permission.PRODUCTS_VIEW,
+            Permission.INVENTORY_VIEW,
+            Permission.EXPENSES_CREATE,
+        },
+    }
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -65,6 +164,13 @@ class OrganizationMembership(models.Model):
     @property
     def is_manager(self):
         return self.role in {self.Role.OWNER, self.Role.ADMIN, self.Role.MANAGER}
+
+    def has_permission(self, permission):
+        return permission in self.ROLE_PERMISSIONS.get(self.role, set())
+
+    @property
+    def permissions(self):
+        return sorted(self.ROLE_PERMISSIONS.get(self.role, set()))
 
     def __str__(self):
         return f'{self.user} - {self.organization} ({self.role})'
