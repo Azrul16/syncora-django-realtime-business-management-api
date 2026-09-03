@@ -10,6 +10,8 @@ from rest_framework.response import Response
 
 from apps.notifications.event_types import EventType, build_realtime_event
 
+from apps.branches.models import Branch
+
 from .models import Organization, OrganizationMembership
 from .permissions import get_active_membership
 from .permissions import IsOrganizationMemberReadOnlyOrAdmin
@@ -119,6 +121,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             membership.is_active = True
             membership.save(update_fields=['role', 'is_active'])
 
+        self.update_branch_assignments(membership, data.get('branches'))
         return membership
 
     def update_member(self, actor_membership, membership, data):
@@ -135,7 +138,19 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         membership.role = new_role
         membership.is_active = new_is_active
         membership.save(update_fields=['role', 'is_active'])
+        self.update_branch_assignments(membership, data.get('branches'))
         return membership
+
+    def update_branch_assignments(self, membership, branch_ids):
+        if branch_ids is None:
+            return
+        branches = Branch.objects.filter(
+            organization=membership.organization,
+            id__in=branch_ids,
+        )
+        if branches.count() != len(set(branch_ids)):
+            raise ValidationError({'branches': 'All assigned branches must belong to this organization.'})
+        membership.branches.set(branches)
 
     def ensure_can_manage_membership(self, actor_membership, membership):
         if not actor_membership or not actor_membership.is_admin:

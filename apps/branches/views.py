@@ -1,3 +1,4 @@
+from django.db import models
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
@@ -20,10 +21,21 @@ class BranchViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'created_at', 'updated_at']
 
     def get_queryset(self):
-        return Branch.objects.filter(
+        queryset = Branch.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
         ).select_related('organization').distinct()
+        memberships = self.request.user.organization_memberships.prefetch_related('branches').filter(is_active=True)
+        restricted_branch_ids = []
+        unrestricted_org_ids = []
+        for membership in memberships:
+            if membership.has_all_branch_access:
+                unrestricted_org_ids.append(membership.organization_id)
+            else:
+                restricted_branch_ids.extend(membership.branches.values_list('id', flat=True))
+        return queryset.filter(
+            models.Q(organization_id__in=unrestricted_org_ids) | models.Q(id__in=restricted_branch_ids)
+        ).distinct()
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']

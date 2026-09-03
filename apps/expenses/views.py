@@ -10,7 +10,9 @@ from apps.notifications.event_types import EventType
 from apps.notifications.services.event_dispatcher import dispatch_event
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
+    filter_queryset_by_branch_access,
     get_active_membership,
+    user_can_access_branch,
 )
 
 from .models import Expense, ExpenseCategory
@@ -46,16 +48,19 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     ordering_fields = ['expense_date', 'amount', 'created_at']
 
     def get_queryset(self):
-        return Expense.objects.filter(
+        queryset = Expense.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
         ).select_related('organization', 'branch', 'category', 'created_by', 'approved_by').distinct()
+        return filter_queryset_by_branch_access(queryset, self.request.user)
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
         membership = get_active_membership(self.request.user, organization)
         if not membership:
             raise PermissionDenied('Only organization members can create expenses.')
+        if not user_can_access_branch(self.request.user, organization, serializer.validated_data.get('branch')):
+            raise PermissionDenied('You do not have access to this branch.')
         expense = serializer.save(created_by=self.request.user)
         dispatch_event(
             event=EventType.EXPENSE_CREATED,
@@ -125,6 +130,8 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('Only organization members can cancel expenses.')
         if expense.created_by_id != request.user.id and not membership.is_manager:
             raise PermissionDenied('Only the creator or managers can cancel expenses.')
+        if not user_can_access_branch(request.user, expense.organization, expense.branch):
+            raise PermissionDenied('You do not have access to this branch.')
 
         try:
             expense.cancel()
@@ -149,3 +156,5 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(
                 f'Only organization owners, admins, or managers can {action_name} expenses.'
             )
+        if not user_can_access_branch(request.user, expense.organization, expense.branch):
+            raise PermissionDenied('You do not have access to this branch.')

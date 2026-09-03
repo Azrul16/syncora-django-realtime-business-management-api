@@ -8,7 +8,9 @@ from rest_framework.response import Response
 
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
+    filter_queryset_by_branch_access,
     get_active_membership,
+    user_can_access_branch,
 )
 
 from .models import InventoryStock, StockMovement
@@ -28,6 +30,7 @@ class InventoryStockViewSet(viewsets.ModelViewSet):
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
         ).select_related('organization', 'branch', 'product').distinct()
+        queryset = filter_queryset_by_branch_access(queryset, self.request.user)
         if self.request.query_params.get('low_stock') in {'1', 'true', 'True'}:
             queryset = queryset.filter(quantity__lte=F('reorder_level'))
         return queryset
@@ -37,6 +40,8 @@ class InventoryStockViewSet(viewsets.ModelViewSet):
         membership = get_active_membership(self.request.user, organization)
         if not membership or not membership.is_manager:
             raise PermissionDenied('Only organization owners, admins, or managers can create stock records.')
+        if not user_can_access_branch(self.request.user, organization, serializer.validated_data['branch']):
+            raise PermissionDenied('You do not have access to this branch.')
         serializer.save()
 
     @action(detail=True, methods=['post'])
@@ -51,6 +56,8 @@ class InventoryStockViewSet(viewsets.ModelViewSet):
         membership = get_active_membership(request.user, stock.organization)
         if not membership or not membership.is_manager:
             raise PermissionDenied('Only organization owners, admins, or managers can adjust stock.')
+        if not user_can_access_branch(request.user, stock.organization, stock.branch):
+            raise PermissionDenied('You do not have access to this branch.')
         quantity = request.data.get('quantity')
         if quantity is None:
             raise ValidationError({'quantity': 'This field is required.'})
@@ -77,7 +84,8 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['created_at', 'quantity']
 
     def get_queryset(self):
-        return StockMovement.objects.filter(
+        queryset = StockMovement.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
         ).select_related('organization', 'branch', 'product', 'product_variant').distinct()
+        return filter_queryset_by_branch_access(queryset, self.request.user)

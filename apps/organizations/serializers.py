@@ -16,7 +16,7 @@ class OrganizationMembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrganizationMembership
-        fields = ['id', 'user', 'user_email', 'organization', 'role', 'permissions', 'is_active', 'joined_at']
+        fields = ['id', 'user', 'user_email', 'organization', 'role', 'permissions', 'branches', 'is_active', 'joined_at']
         read_only_fields = ['id', 'user', 'user_email', 'organization', 'joined_at']
 
 
@@ -26,6 +26,7 @@ class OrganizationMembershipCreateSerializer(serializers.Serializer):
         choices=OrganizationMembership.Role.choices,
         default=OrganizationMembership.Role.EMPLOYEE,
     )
+    branches = serializers.ListField(child=serializers.IntegerField(), required=False)
 
 
 class OrganizationMembershipUpdateSerializer(serializers.Serializer):
@@ -34,3 +35,4 @@ class OrganizationMembershipUpdateSerializer(serializers.Serializer):
         required=False,
     )
     is_active = serializers.BooleanField(required=False)
+    branches = serializers.ListField(child=serializers.IntegerField(), required=False)

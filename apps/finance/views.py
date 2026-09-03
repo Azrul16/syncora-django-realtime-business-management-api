@@ -11,7 +11,7 @@ from rest_framework.response import Response
 
 from apps.branches.models import Branch
 from apps.organizations.models import Organization
-from apps.organizations.permissions import get_active_membership
+from apps.organizations.permissions import get_active_membership, user_can_access_branch
 
 from .services.dashboard_analytics import DashboardAnalyticsService
 from .services.financial_summary import FinancialSummaryService
@@ -72,6 +72,8 @@ def get_branch_for_request(request, organization):
         return None
     branch = Branch.objects.filter(id=branch_id, organization=organization).first()
     if not branch:
+        raise NotFound('Branch was not found.')
+    if not user_can_access_branch(request.user, organization, branch):
         raise NotFound('Branch was not found.')
     return branch
 

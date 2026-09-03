@@ -140,6 +140,11 @@ class OrganizationMembership(models.Model):
         on_delete=models.CASCADE,
         related_name='memberships',
     )
+    branches = models.ManyToManyField(
+        'branches.Branch',
+        related_name='memberships',
+        blank=True,
+    )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE)
     is_active = models.BooleanField(default=True)
     joined_at = models.DateTimeField(auto_now_add=True)
@@ -171,6 +176,10 @@ class OrganizationMembership(models.Model):
     @property
     def permissions(self):
         return sorted(self.ROLE_PERMISSIONS.get(self.role, set()))
+
+    @property
+    def has_all_branch_access(self):
+        return self.is_admin or not self.branches.exists()
 
     def __str__(self):
         return f'{self.user} - {self.organization} ({self.role})'

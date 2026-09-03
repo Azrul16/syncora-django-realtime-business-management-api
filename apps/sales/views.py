@@ -11,7 +11,9 @@ from apps.notifications.event_types import EventType
 from apps.notifications.services.event_dispatcher import dispatch_event
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
+    filter_queryset_by_branch_access,
     get_active_membership,
+    user_can_access_branch,
 )
 
 from .models import Payment, Sale
@@ -33,6 +35,7 @@ class SaleViewSet(viewsets.ModelViewSet):
             'items__product',
             'payments',
         ).distinct()
+        queryset = filter_queryset_by_branch_access(queryset, self.request.user)
         date_from = self.request.query_params.get('date_from')
         date_to = self.request.query_params.get('date_to')
         payment_status = self.request.query_params.get('payment_status')
@@ -61,6 +64,8 @@ class SaleViewSet(viewsets.ModelViewSet):
         membership = get_active_membership(self.request.user, organization)
         if not membership or not membership.is_manager:
             raise PermissionDenied('Only organization owners, admins, or managers can create sales.')
+        if not user_can_access_branch(self.request.user, organization, serializer.validated_data['branch']):
+            raise PermissionDenied('You do not have access to this branch.')
         serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
@@ -190,3 +195,5 @@ class SaleViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(
                 f'Only organization owners, admins, or managers can {action_name} sales.'
             )
+        if not user_can_access_branch(request.user, sale.organization, sale.branch):
+            raise PermissionDenied('You do not have access to this branch.')
