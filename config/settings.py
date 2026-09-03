@@ -237,6 +237,20 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+STORAGES = {
+    'default': {
+        'BACKEND': os.getenv('DEFAULT_FILE_STORAGE', 'django.core.files.storage.FileSystemStorage'),
+    },
+    'staticfiles': {
+        'BACKEND': os.getenv(
+            'STATICFILES_STORAGE',
+            'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+        ),
+    },
+}
 
 SECURE_SSL_REDIRECT = False if IS_TESTING else env_bool('SECURE_SSL_REDIRECT', not DEBUG)
 SESSION_COOKIE_SECURE = False if IS_TESTING else env_bool('SESSION_COOKIE_SECURE', not DEBUG)

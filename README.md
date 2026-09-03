@@ -275,6 +275,7 @@ Deployment preparation notes are maintained in:
 - `docs/deployment.md`
 - `docs/asgi-deployment.md`
 - `docs/postgresql-production.md`
+- `docs/static-media.md`
 
 GitHub repository metadata guidance is maintained in:
 

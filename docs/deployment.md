@@ -71,6 +71,7 @@ EMAIL_USE_SSL=False
 
 Detailed ASGI deployment notes are available in `docs/asgi-deployment.md`.
 Production PostgreSQL setup notes are available in `docs/postgresql-production.md`.
+Static and media deployment notes are available in `docs/static-media.md`.
 
 ## WebSocket Scaling
 
