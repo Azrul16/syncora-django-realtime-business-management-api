@@ -1,13 +1,12 @@
 from django.db import models
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 
 from apps.core.views import SoftDeleteViewSetMixin
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMembership
 from apps.organizations.permissions import (
-    IsOrganizationMemberReadOnlyOrManager,
-    get_active_membership,
+    IsOrganizationMember,
+    enforce_permission,
 )
 
 from .models import Branch
@@ -16,7 +15,7 @@ from .serializers import BranchSerializer
 
 class BranchViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = BranchSerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'is_active', 'slug']
     search_fields = ['name', 'email', 'phone']
     ordering_fields = ['name', 'created_at', 'updated_at']
@@ -41,10 +40,31 @@ class BranchViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
-        membership = get_active_membership(self.request.user, organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create branches.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.BRANCHES_MANAGE,
+            'You do not have permission to manage branches.',
+        )
         serializer.save()
+
+    def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.organization,
+            OrganizationMembership.Permission.BRANCHES_MANAGE,
+            'You do not have permission to manage branches.',
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        enforce_permission(
+            self.request.user,
+            instance.organization,
+            OrganizationMembership.Permission.BRANCHES_MANAGE,
+            'You do not have permission to manage branches.',
+        )
+        super().perform_destroy(instance)
 
     def get_serializer(self, *args, **kwargs):
         serializer = super().get_serializer(*args, **kwargs)

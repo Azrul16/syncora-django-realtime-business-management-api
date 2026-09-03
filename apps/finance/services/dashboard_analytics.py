@@ -15,16 +15,18 @@ from .financial_summary import FinancialSummaryService, decimal_sum
 
 
 class DashboardAnalyticsService:
-    def __init__(self, organization, date_from=None, date_to=None, branch=None):
+    def __init__(self, organization, date_from=None, date_to=None, branch=None, branch_ids=None):
         self.organization = organization
         self.date_from = date_from
         self.date_to = date_to
         self.branch = branch
+        self.branch_ids = branch_ids
         self.financials = FinancialSummaryService(
             organization=organization,
             date_from=date_from,
             date_to=date_to,
             branch=branch,
+            branch_ids=branch_ids,
         )
 
     def get_customer_queryset(self):
@@ -39,6 +41,8 @@ class DashboardAnalyticsService:
         queryset = InventoryStock.objects.filter(organization=self.organization)
         if self.branch:
             queryset = queryset.filter(branch=self.branch)
+        elif self.branch_ids is not None:
+            queryset = queryset.filter(branch_id__in=self.branch_ids)
         return queryset.select_related('product', 'product_variant')
 
     def get_summary(self):
@@ -252,6 +256,8 @@ class DashboardAnalyticsService:
         branch_queryset = Branch.objects.filter(organization=self.organization, is_active=True)
         if self.branch:
             branch_queryset = branch_queryset.filter(id=self.branch.id)
+        elif self.branch_ids is not None:
+            branch_queryset = branch_queryset.filter(id__in=self.branch_ids)
 
         sales_rows = self.financials.get_sales_queryset().values('branch_id').annotate(
             revenue=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
@@ -262,8 +268,7 @@ class DashboardAnalyticsService:
         ).annotate(
             cogs=Sum(F('quantity') * F('unit_cost'), output_field=DecimalField(max_digits=14, decimal_places=2)),
         )
-        low_stock_rows = InventoryStock.objects.filter(
-            organization=self.organization,
+        low_stock_rows = self.get_inventory_queryset().filter(
             quantity__lte=F('reorder_level'),
         ).values('branch_id').annotate(low_stock=Count('id'))
         sales_by_branch = {row['branch_id']: row for row in sales_rows}

@@ -7,10 +7,11 @@ from rest_framework.response import Response
 
 from apps.notifications.event_types import EventType
 from apps.notifications.services.event_dispatcher import dispatch_event
+from apps.organizations.models import OrganizationMembership
 from apps.organizations.permissions import (
-    IsOrganizationMemberReadOnlyOrManager,
+    IsOrganizationMember,
+    enforce_permission,
     filter_queryset_by_branch_access,
-    get_active_membership,
     user_can_access_branch,
 )
 
@@ -20,7 +21,7 @@ from .serializers import PurchaseSerializer
 
 class PurchaseViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseSerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'branch', 'supplier', 'status']
     search_fields = ['reference', 'purchase_number', 'supplier__name', 'branch__name']
     ordering_fields = ['order_date', 'created_at', 'updated_at', 'received_at']
@@ -41,14 +42,23 @@ class PurchaseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['branch'].organization
-        membership = get_active_membership(self.request.user, organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create purchases.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.PURCHASES_CREATE,
+            'You do not have permission to create purchases.',
+        )
         if not user_can_access_branch(self.request.user, organization, serializer.validated_data['branch']):
             raise PermissionDenied('You do not have access to this branch.')
         serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.organization,
+            OrganizationMembership.Permission.PURCHASES_CREATE,
+            'You do not have permission to manage purchases.',
+        )
         if serializer.instance.status in {Purchase.Status.RECEIVED, Purchase.Status.CANCELLED}:
             raise ValidationError({'status': 'Received or cancelled purchases cannot be edited.'})
         purchase = serializer.save()
@@ -132,10 +142,14 @@ class PurchaseViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(purchase).data, status=status.HTTP_200_OK)
 
     def ensure_can_manage_purchase(self, request, purchase, action_name):
-        membership = get_active_membership(request.user, purchase.organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied(
-                f'Only organization owners, admins, or managers can {action_name} purchases.'
-            )
+        permission = OrganizationMembership.Permission.PURCHASES_RECEIVE
+        if action_name in {'order', 'cancel'}:
+            permission = OrganizationMembership.Permission.PURCHASES_CREATE
+        enforce_permission(
+            request.user,
+            purchase.organization,
+            permission,
+            f'You do not have permission to {action_name} purchases.',
+        )
         if not user_can_access_branch(request.user, purchase.organization, purchase.branch):
             raise PermissionDenied('You do not have access to this branch.')

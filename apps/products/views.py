@@ -1,12 +1,11 @@
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 
 from apps.core.views import SoftDeleteViewSetMixin
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMembership
 from apps.organizations.permissions import (
-    IsOrganizationMemberReadOnlyOrManager,
-    get_active_membership,
+    IsOrganizationMember,
+    enforce_permission,
 )
 
 from .models import Product, ProductCategory, ProductVariant
@@ -15,7 +14,7 @@ from .serializers import ProductCategorySerializer, ProductSerializer, ProductVa
 
 class ProductCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ProductCategorySerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'is_active', 'slug']
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at', 'updated_at']
@@ -29,15 +28,36 @@ class ProductCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
-        membership = get_active_membership(self.request.user, organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create categories.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
         serializer.save()
+
+    def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        enforce_permission(
+            self.request.user,
+            instance.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
+        super().perform_destroy(instance)
 
 
 class ProductViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'is_active', 'sku', 'slug']
     search_fields = ['name', 'sku', 'description']
     ordering_fields = ['name', 'sku', 'created_at', 'updated_at']
@@ -51,10 +71,31 @@ class ProductViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
-        membership = get_active_membership(self.request.user, organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create products.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
         serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        enforce_permission(
+            self.request.user,
+            instance.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
+        super().perform_destroy(instance)
 
     def get_serializer(self, *args, **kwargs):
         serializer = super().get_serializer(*args, **kwargs)
@@ -68,7 +109,7 @@ class ProductViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
 class ProductVariantViewSet(viewsets.ModelViewSet):
     serializer_class = ProductVariantSerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['product', 'is_active', 'sku']
     search_fields = ['name', 'sku', 'product__name']
     ordering_fields = ['name', 'sku', 'created_at', 'updated_at']
@@ -81,7 +122,28 @@ class ProductVariantViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         product = serializer.validated_data['product']
-        membership = get_active_membership(self.request.user, product.organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create product variants.')
+        enforce_permission(
+            self.request.user,
+            product.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
         serializer.save()
+
+    def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.product.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        enforce_permission(
+            self.request.user,
+            instance.product.organization,
+            OrganizationMembership.Permission.PRODUCTS_MANAGE,
+            'You do not have permission to manage products.',
+        )
+        super().perform_destroy(instance)

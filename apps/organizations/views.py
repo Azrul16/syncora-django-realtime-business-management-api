@@ -14,7 +14,7 @@ from apps.notifications.services.audit import record_audit_event
 from apps.branches.models import Branch
 
 from .models import Organization, OrganizationMembership
-from .permissions import get_active_membership
+from .permissions import enforce_permission, get_active_membership
 from .permissions import IsOrganizationMemberReadOnlyOrAdmin
 from .serializers import (
     OrganizationMembershipCreateSerializer,
@@ -99,6 +99,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def add_member(self, organization, data):
         actor_membership = get_active_membership(self.request.user, organization)
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.USERS_MANAGE,
+            'You do not have permission to manage organization members.',
+        )
         role = data['role']
 
         if role == OrganizationMembership.Role.OWNER and not actor_membership.is_owner:
@@ -191,8 +197,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
 
     def ensure_can_manage_membership(self, actor_membership, membership):
-        if not actor_membership or not actor_membership.is_admin:
-            raise PermissionDenied('Only organization owners or admins can manage members.')
+        if not actor_membership or not actor_membership.has_permission(OrganizationMembership.Permission.USERS_MANAGE):
+            raise PermissionDenied('You do not have permission to manage organization members.')
         if actor_membership.id == membership.id:
             raise PermissionDenied('You cannot manage your own membership through this endpoint.')
 

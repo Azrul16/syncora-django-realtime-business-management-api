@@ -11,8 +11,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from apps.branches.models import Branch
-from apps.organizations.models import Organization
-from apps.organizations.permissions import get_active_membership, user_can_access_branch
+from apps.organizations.models import Organization, OrganizationMembership
+from apps.organizations.permissions import enforce_permission, get_active_membership, user_can_access_branch
 
 from .services.dashboard_analytics import DashboardAnalyticsService
 from .services.financial_summary import FinancialSummaryService
@@ -46,7 +46,14 @@ def get_organization_for_request(request):
 
 def get_financial_service(request):
     organization = get_organization_for_request(request)
+    enforce_permission(
+        request.user,
+        organization,
+        OrganizationMembership.Permission.FINANCE_VIEW,
+        'You do not have permission to view financial reports.',
+    )
     branch = get_branch_for_request(request, organization)
+    branch_ids = get_branch_scope_for_request(request, organization, branch)
     date_from, date_to = get_date_range_for_request(request)
     if date_from and date_to and date_from > date_to:
         raise ValidationError({'date_to': 'date_to must be on or after date_from.'})
@@ -55,12 +62,20 @@ def get_financial_service(request):
         date_from=date_from,
         date_to=date_to,
         branch=branch,
+        branch_ids=branch_ids,
     )
 
 
 def get_dashboard_service(request):
     organization = get_organization_for_request(request)
+    enforce_permission(
+        request.user,
+        organization,
+        OrganizationMembership.Permission.REPORTS_VIEW,
+        'You do not have permission to view dashboard reports.',
+    )
     branch = get_branch_for_request(request, organization)
+    branch_ids = get_branch_scope_for_request(request, organization, branch)
     date_from, date_to = get_date_range_for_request(request)
     if date_from and date_to and date_from > date_to:
         raise ValidationError({'date_to': 'date_to must be on or after date_from.'})
@@ -69,6 +84,7 @@ def get_dashboard_service(request):
         date_from=date_from,
         date_to=date_to,
         branch=branch,
+        branch_ids=branch_ids,
     )
 
 
@@ -82,6 +98,15 @@ def get_branch_for_request(request, organization):
     if not user_can_access_branch(request.user, organization, branch):
         raise NotFound('Branch was not found.')
     return branch
+
+
+def get_branch_scope_for_request(request, organization, branch):
+    if branch:
+        return [branch.id]
+    membership = get_active_membership(request.user, organization)
+    if not membership or membership.has_all_branch_access:
+        return None
+    return list(membership.branches.values_list('id', flat=True))
 
 
 def get_date_for_request(request, name):
@@ -157,6 +182,7 @@ def cash_flow_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_summary(request):
     service = get_dashboard_service(request)
     return Response(serialize_money(service.get_summary()))
@@ -164,6 +190,7 @@ def dashboard_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_sales_trend(request):
     service = get_dashboard_service(request)
     granularity = request.query_params.get('granularity', 'day')
@@ -172,6 +199,7 @@ def dashboard_sales_trend(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_profit_trend(request):
     service = get_dashboard_service(request)
     granularity = request.query_params.get('granularity', 'day')
@@ -180,6 +208,7 @@ def dashboard_profit_trend(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_top_products(request):
     service = get_dashboard_service(request)
     limit = int(request.query_params.get('limit', 10))
@@ -188,6 +217,7 @@ def dashboard_top_products(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_slow_moving_products(request):
     service = get_dashboard_service(request)
     days = int(request.query_params.get('days', 30))
@@ -197,6 +227,7 @@ def dashboard_slow_moving_products(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_inventory_summary(request):
     service = get_dashboard_service(request)
     return Response(serialize_money(service.get_inventory_summary()))
@@ -204,6 +235,7 @@ def dashboard_inventory_summary(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_low_stock(request):
     service = get_dashboard_service(request)
     limit = int(request.query_params.get('limit', 20))
@@ -212,6 +244,7 @@ def dashboard_low_stock(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_out_of_stock(request):
     service = get_dashboard_service(request)
     limit = int(request.query_params.get('limit', 20))
@@ -220,6 +253,7 @@ def dashboard_out_of_stock(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_stock_value(request):
     service = get_dashboard_service(request)
     return Response(serialize_money(service.get_stock_value()))
@@ -227,6 +261,7 @@ def dashboard_stock_value(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_branches(request):
     service = get_dashboard_service(request)
     return Response(serialize_money(service.get_branch_performance()))
@@ -234,6 +269,7 @@ def dashboard_branches(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_customers(request):
     service = get_dashboard_service(request)
     limit = int(request.query_params.get('limit', 10))
@@ -242,6 +278,7 @@ def dashboard_customers(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@report_throttles
 def dashboard_suppliers(request):
     service = get_dashboard_service(request)
     limit = int(request.query_params.get('limit', 10))

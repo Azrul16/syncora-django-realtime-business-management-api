@@ -1,5 +1,5 @@
-from rest_framework.permissions import BasePermission
 from django.db.models import Q
+from rest_framework.permissions import BasePermission
 
 from .models import OrganizationMembership
 
@@ -24,6 +24,13 @@ def user_has_permission(user, organization, permission):
 
 def require_permission(user, organization, permission):
     return user_has_permission(user, organization, permission)
+
+
+def enforce_permission(user, organization, permission, message='You do not have permission to perform this action.'):
+    if not user_has_permission(user, organization, permission):
+        from rest_framework.exceptions import PermissionDenied
+
+        raise PermissionDenied(message)
 
 
 def user_can_access_branch(user, organization, branch):

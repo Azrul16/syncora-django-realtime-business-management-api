@@ -9,8 +9,10 @@ from rest_framework.response import Response
 from apps.core.views import SoftDeleteViewSetMixin
 from apps.notifications.event_types import EventType
 from apps.notifications.services.event_dispatcher import dispatch_event
+from apps.organizations.models import OrganizationMembership
 from apps.organizations.permissions import (
-    IsOrganizationMemberReadOnlyOrManager,
+    IsOrganizationMember,
+    enforce_permission,
     filter_queryset_by_branch_access,
     get_active_membership,
     user_can_access_branch,
@@ -22,7 +24,7 @@ from .serializers import ExpenseCategorySerializer, ExpenseSerializer
 
 class ExpenseCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ExpenseCategorySerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'is_active']
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at', 'updated_at']
@@ -36,15 +38,36 @@ class ExpenseCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
-        membership = get_active_membership(self.request.user, organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create expense categories.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.EXPENSES_APPROVE,
+            'You do not have permission to manage expense categories.',
+        )
         serializer.save()
+
+    def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.organization,
+            OrganizationMembership.Permission.EXPENSES_APPROVE,
+            'You do not have permission to manage expense categories.',
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        enforce_permission(
+            self.request.user,
+            instance.organization,
+            OrganizationMembership.Permission.EXPENSES_APPROVE,
+            'You do not have permission to manage expense categories.',
+        )
+        super().perform_destroy(instance)
 
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'branch', 'category', 'status', 'expense_date']
     search_fields = ['title', 'description', 'reference', 'notes', 'expense_number']
     ordering_fields = ['expense_date', 'amount', 'created_at']
@@ -58,9 +81,12 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
-        membership = get_active_membership(self.request.user, organization)
-        if not membership:
-            raise PermissionDenied('Only organization members can create expenses.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.EXPENSES_CREATE,
+            'You do not have permission to create expenses.',
+        )
         if not user_can_access_branch(self.request.user, organization, serializer.validated_data.get('branch')):
             raise PermissionDenied('You do not have access to this branch.')
         expense = serializer.save(created_by=self.request.user)
@@ -76,6 +102,31 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             notification_message=f'{expense.expense_number} is waiting for approval.',
             activity_description=f'{expense.expense_number} was created.',
         )
+
+    def perform_update(self, serializer):
+        expense = serializer.instance
+        membership = get_active_membership(self.request.user, expense.organization)
+        if not membership:
+            raise PermissionDenied('Only organization members can update expenses.')
+        if expense.created_by_id != self.request.user.id and not membership.has_permission(
+            OrganizationMembership.Permission.EXPENSES_APPROVE
+        ):
+            raise PermissionDenied('Only the creator or expense approvers can update expenses.')
+        if not user_can_access_branch(self.request.user, expense.organization, expense.branch):
+            raise PermissionDenied('You do not have access to this branch.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        membership = get_active_membership(self.request.user, instance.organization)
+        if not membership:
+            raise PermissionDenied('Only organization members can delete expenses.')
+        if instance.created_by_id != self.request.user.id and not membership.has_permission(
+            OrganizationMembership.Permission.EXPENSES_APPROVE
+        ):
+            raise PermissionDenied('Only the creator or expense approvers can delete expenses.')
+        if not user_can_access_branch(self.request.user, instance.organization, instance.branch):
+            raise PermissionDenied('You do not have access to this branch.')
+        super().perform_destroy(instance)
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -130,7 +181,9 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         membership = get_active_membership(request.user, expense.organization)
         if not membership:
             raise PermissionDenied('Only organization members can cancel expenses.')
-        if expense.created_by_id != request.user.id and not membership.is_manager:
+        if expense.created_by_id != request.user.id and not membership.has_permission(
+            OrganizationMembership.Permission.EXPENSES_APPROVE
+        ):
             raise PermissionDenied('Only the creator or managers can cancel expenses.')
         if not user_can_access_branch(request.user, expense.organization, expense.branch):
             raise PermissionDenied('You do not have access to this branch.')
@@ -153,10 +206,11 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(expense).data, status=status.HTTP_200_OK)
 
     def ensure_can_approve_expense(self, request, expense, action_name):
-        membership = get_active_membership(request.user, expense.organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied(
-                f'Only organization owners, admins, or managers can {action_name} expenses.'
-            )
+        enforce_permission(
+            request.user,
+            expense.organization,
+            OrganizationMembership.Permission.EXPENSES_APPROVE,
+            f'You do not have permission to {action_name} expenses.',
+        )
         if not user_can_access_branch(request.user, expense.organization, expense.branch):
             raise PermissionDenied('You do not have access to this branch.')

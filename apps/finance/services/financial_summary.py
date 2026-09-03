@@ -15,19 +15,26 @@ def decimal_sum(value):
 
 
 class FinancialSummaryService:
-    def __init__(self, organization, date_from=None, date_to=None, branch=None):
+    def __init__(self, organization, date_from=None, date_to=None, branch=None, branch_ids=None):
         self.organization = organization
         self.date_from = date_from
         self.date_to = date_to
         self.branch = branch
+        self.branch_ids = branch_ids
+
+    def filter_by_branch_scope(self, queryset, field='branch'):
+        if self.branch:
+            return queryset.filter(**{field: self.branch})
+        if self.branch_ids is not None:
+            return queryset.filter(**{f'{field}_id__in': self.branch_ids})
+        return queryset
 
     def get_sales_queryset(self):
         queryset = Sale.objects.filter(
             organization=self.organization,
             status=Sale.Status.COMPLETED,
         )
-        if self.branch:
-            queryset = queryset.filter(branch=self.branch)
+        queryset = self.filter_by_branch_scope(queryset)
         if self.date_from:
             queryset = queryset.filter(sale_date__gte=self.date_from)
         if self.date_to:
@@ -36,8 +43,7 @@ class FinancialSummaryService:
 
     def get_payment_queryset(self):
         queryset = Payment.objects.filter(organization=self.organization)
-        if self.branch:
-            queryset = queryset.filter(sale__branch=self.branch)
+        queryset = self.filter_by_branch_scope(queryset, field='sale__branch')
         if self.date_from:
             queryset = queryset.filter(paid_at__date__gte=self.date_from)
         if self.date_to:
@@ -49,8 +55,7 @@ class FinancialSummaryService:
             organization=self.organization,
             status=Expense.Status.APPROVED,
         )
-        if self.branch:
-            queryset = queryset.filter(branch=self.branch)
+        queryset = self.filter_by_branch_scope(queryset)
         if self.date_from:
             queryset = queryset.filter(expense_date__gte=self.date_from)
         if self.date_to:
@@ -62,8 +67,7 @@ class FinancialSummaryService:
             organization=self.organization,
             status=Purchase.Status.RECEIVED,
         )
-        if self.branch:
-            queryset = queryset.filter(branch=self.branch)
+        queryset = self.filter_by_branch_scope(queryset)
         if self.date_from:
             queryset = queryset.filter(order_date__gte=self.date_from)
         if self.date_to:

@@ -87,6 +87,7 @@ class OrganizationMembership(models.Model):
             Permission.FINANCE_VIEW,
         },
         Role.MANAGER: {
+            Permission.BRANCHES_MANAGE,
             Permission.PRODUCTS_VIEW,
             Permission.PRODUCTS_MANAGE,
             Permission.INVENTORY_VIEW,

@@ -2,17 +2,16 @@ from decimal import Decimal
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.views import SoftDeleteViewSetMixin
 from apps.finance.services.dashboard_analytics import DashboardAnalyticsService
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMembership
 from apps.organizations.permissions import (
-    IsOrganizationMemberReadOnlyOrManager,
-    get_active_membership,
+    IsOrganizationMember,
+    enforce_permission,
 )
 
 from .models import Supplier
@@ -29,7 +28,7 @@ def serialize_money(value):
 
 class SupplierViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = SupplierSerializer
-    permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'is_active']
     search_fields = ['name', 'email', 'phone']
     ordering_fields = ['name', 'created_at', 'updated_at']
@@ -43,10 +42,31 @@ class SupplierViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
-        membership = get_active_membership(self.request.user, organization)
-        if not membership or not membership.is_manager:
-            raise PermissionDenied('Only organization owners, admins, or managers can create suppliers.')
+        enforce_permission(
+            self.request.user,
+            organization,
+            OrganizationMembership.Permission.PURCHASES_CREATE,
+            'You do not have permission to manage suppliers.',
+        )
         serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        enforce_permission(
+            self.request.user,
+            serializer.instance.organization,
+            OrganizationMembership.Permission.PURCHASES_CREATE,
+            'You do not have permission to manage suppliers.',
+        )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        enforce_permission(
+            self.request.user,
+            instance.organization,
+            OrganizationMembership.Permission.PURCHASES_CREATE,
+            'You do not have permission to manage suppliers.',
+        )
+        super().perform_destroy(instance)
 
     def get_serializer(self, *args, **kwargs):
         serializer = super().get_serializer(*args, **kwargs)
