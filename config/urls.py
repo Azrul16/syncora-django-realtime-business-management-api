@@ -20,9 +20,10 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from apps.core.views import health_check
+from apps.core.views import health_check, web_app
 
 urlpatterns = [
+    path('', web_app, name='web-app'),
     path('admin/', admin.site.urls),
     path('api/health/', health_check, name='health-check'),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

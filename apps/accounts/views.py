@@ -12,6 +12,7 @@ from .serializers import (
     LoginResponseSerializer,
     LoginSerializer,
     LogoutSerializer,
+    RegisterSerializer,
     UserSummarySerializer,
 )
 
@@ -41,6 +42,34 @@ def login(request):
         ).data,
         status=status.HTTP_200_OK,
     )
+
+
+@extend_schema(
+    tags=['Authentication'],
+    request=RegisterSerializer,
+    responses={201: LoginResponseSerializer},
+    description='Create a user account and return JWT access and refresh tokens.',
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([ScopedRateThrottle])
+@throttle_scope('auth')
+def register(request):
+    serializer = RegisterSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.save()
+    record_audit_event(action='user.registered', request=request, actor=data['user'])
+    return Response(
+        LoginResponseSerializer(
+            {
+                'access': data['access'],
+                'refresh': data['refresh'],
+                'user': data['user'],
+            }
+        ).data,
+        status=status.HTTP_201_CREATED,
+    )
+
 
 @extend_schema(
     tags=['Authentication'],

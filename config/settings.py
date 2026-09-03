@@ -247,7 +247,11 @@ STORAGES = {
     'staticfiles': {
         'BACKEND': os.getenv(
             'STATICFILES_STORAGE',
-            'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+            (
+                'django.contrib.staticfiles.storage.StaticFilesStorage'
+                if DEBUG or IS_TESTING
+                else 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+            ),
         ),
     },
 }

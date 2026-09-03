@@ -1,4 +1,5 @@
 from django.db import connection
+from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -9,6 +10,10 @@ from rest_framework.response import Response
 class SoftDeleteViewSetMixin:
     def perform_destroy(self, instance):
         instance.soft_delete(self.request.user)
+
+
+def web_app(request):
+    return render(request, 'core/app.html')
 
 
 @extend_schema(

@@ -1,0 +1,87 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Syncora</title>
+  <link rel="stylesheet" href="{% static 'core/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Syncora</h1>
+      <p id="sessionLabel">Signed out</p>
+    </div>
+    <button id="logoutButton" class="ghost" type="button" hidden>Sign out</button>
+  </header>
+
+  <main class="layout">
+    <section id="authPanel" class="panel auth-grid">
+      <form id="registerForm" class="stack">
+        <h2>Create Account</h2>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <label>First name<input name="first_name" type="text" autocomplete="given-name"></label>
+        <label>Last name<input name="last_name" type="text" autocomplete="family-name"></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+        <button type="submit">Create Account</button>
+      </form>
+
+      <form id="loginForm" class="stack">
+        <h2>Login</h2>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">Login</button>
+      </form>
+    </section>
+
+    <section id="appPanel" class="app-grid" hidden>
+      <aside class="panel sidebar">
+        <h2>Data</h2>
+        <nav id="resourceNav" class="nav-list">
+          <button type="button" data-resource="organizations" class="active">Organizations</button>
+          <button type="button" data-resource="branches">Branches</button>
+          <button type="button" data-resource="products">Products</button>
+          <button type="button" data-resource="customers">Customers</button>
+          <button type="button" data-resource="suppliers">Suppliers</button>
+          <button type="button" data-resource="purchases">Purchases</button>
+          <button type="button" data-resource="sales">Sales</button>
+          <button type="button" data-resource="expenses">Expenses</button>
+          <button type="button" data-resource="notifications">Notifications</button>
+        </nav>
+      </aside>
+
+      <section class="panel content">
+        <div class="content-head">
+          <div>
+            <h2 id="resourceTitle">Organizations</h2>
+            <p id="resourceMeta">0 records</p>
+          </div>
+          <button id="refreshButton" class="ghost" type="button">Refresh</button>
+        </div>
+
+        <div class="forms-row">
+          <form id="organizationForm" class="inline-form">
+            <strong>New organization</strong>
+            <input name="name" type="text" placeholder="Company name" required>
+            <input name="email" type="email" placeholder="company@example.com">
+            <button type="submit">Create</button>
+          </form>
+
+          <form id="branchForm" class="inline-form">
+            <strong>New branch</strong>
+            <select name="organization" required></select>
+            <input name="name" type="text" placeholder="Branch name" required>
+            <button type="submit">Create</button>
+          </form>
+        </div>
+
+        <div id="message" class="message" hidden></div>
+        <div id="dataGrid" class="data-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="{% static 'core/app.js' %}"></script>
+</body>
+</html>
