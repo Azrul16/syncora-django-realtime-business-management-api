@@ -94,7 +94,7 @@ class Purchase(models.Model):
         if not self.items.exists():
             raise ValidationError('Purchase must have at least one item before receiving.')
 
-        for item in self.items.select_related('product'):
+        for item in self.items.select_related('product', 'product_variant'):
             increase_stock(
                 branch=self.branch,
                 product_variant=item.product_variant,

@@ -118,7 +118,7 @@ class Sale(models.Model):
         if self.status != self.Status.CONFIRMED:
             raise ValidationError('Only confirmed sales can be completed.')
 
-        for item in self.items.select_related('product'):
+        for item in self.items.select_related('product', 'product_variant'):
             try:
                 decrease_stock(
                     branch=self.branch,

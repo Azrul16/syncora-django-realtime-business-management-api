@@ -32,8 +32,9 @@ class SaleViewSet(viewsets.ModelViewSet):
         queryset = Sale.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
-        ).select_related('organization', 'branch', 'customer').prefetch_related(
+        ).select_related('organization', 'branch', 'customer', 'created_by').prefetch_related(
             'items__product',
+            'items__product_variant',
             'payments',
         ).distinct()
         queryset = filter_queryset_by_branch_access(queryset, self.request.user)

@@ -67,7 +67,7 @@ class ProductViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
             is_deleted=False,
-        ).select_related('organization').distinct()
+        ).select_related('organization', 'category', 'created_by').distinct()
 
     def perform_create(self, serializer):
         organization = serializer.validated_data['organization']
@@ -118,7 +118,7 @@ class ProductVariantViewSet(viewsets.ModelViewSet):
         return ProductVariant.objects.filter(
             product__organization__memberships__user=self.request.user,
             product__organization__memberships__is_active=True,
-        ).select_related('product', 'product__organization').distinct()
+        ).select_related('product', 'product__organization', 'product__category').distinct()
 
     def perform_create(self, serializer):
         product = serializer.validated_data['product']

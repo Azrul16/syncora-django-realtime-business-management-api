@@ -30,7 +30,7 @@ class InventoryStockViewSet(viewsets.ModelViewSet):
         queryset = InventoryStock.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
-        ).select_related('organization', 'branch', 'product').distinct()
+        ).select_related('organization', 'branch', 'product', 'product_variant', 'updated_by').distinct()
         queryset = filter_queryset_by_branch_access(queryset, self.request.user)
         if self.request.query_params.get('low_stock') in {'1', 'true', 'True'}:
             queryset = queryset.filter(quantity__lte=F('reorder_level'))
@@ -112,5 +112,5 @@ class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = StockMovement.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
-        ).select_related('organization', 'branch', 'product', 'product_variant').distinct()
+        ).select_related('organization', 'branch', 'product', 'product_variant', 'created_by').distinct()
         return filter_queryset_by_branch_access(queryset, self.request.user)

@@ -30,7 +30,10 @@ class PurchaseViewSet(viewsets.ModelViewSet):
         queryset = Purchase.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
-        ).select_related('organization', 'branch', 'supplier').prefetch_related('items__product').distinct()
+        ).select_related('organization', 'branch', 'supplier', 'created_by').prefetch_related(
+            'items__product',
+            'items__product_variant',
+        ).distinct()
         queryset = filter_queryset_by_branch_access(queryset, self.request.user)
         date_from = self.request.query_params.get('date_from')
         date_to = self.request.query_params.get('date_to')
