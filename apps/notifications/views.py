@@ -51,6 +51,7 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
         ).select_related('organization', 'branch', 'actor').distinct()
+        queryset = filter_queryset_by_branch_access(queryset, self.request.user)
         after = self.request.query_params.get('after')
         if after:
             parsed_after = parse_datetime(after)
@@ -58,3 +59,4 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
                 raise ValidationError({'after': 'Use an ISO 8601 datetime.'})
             queryset = queryset.filter(created_at__gt=parsed_after)
         return queryset.order_by('-created_at')
+from apps.organizations.permissions import filter_queryset_by_branch_access

@@ -52,6 +52,16 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'slug', 'created_by', 'created_at', 'updated_at']
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request:
+            organization_ids = request.user.organization_memberships.filter(
+                is_active=True,
+            ).values_list('organization_id', flat=True)
+            self.fields['organization'].queryset = Organization.objects.filter(id__in=organization_ids)
+            self.fields['category'].queryset = ProductCategory.objects.filter(organization_id__in=organization_ids)
+
     def validate(self, attrs):
         organization = attrs.get('organization') or getattr(self.instance, 'organization', None)
         category = attrs.get('category') or getattr(self.instance, 'category', None)
@@ -78,3 +88,12 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'organization', 'created_at', 'updated_at']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request:
+            organization_ids = request.user.organization_memberships.filter(
+                is_active=True,
+            ).values_list('organization_id', flat=True)
+            self.fields['product'].queryset = Product.objects.filter(organization_id__in=organization_ids)
