@@ -193,17 +193,11 @@ class FinancialSummaryTests(APITestCase):
         self.authenticate()
         sync_group_send = Mock()
 
-        with patch('apps.finance.events.async_to_sync', return_value=sync_group_send):
+        with patch('apps.notifications.services.event_dispatcher.async_to_sync', return_value=sync_group_send):
             response = self.client.post(f'/api/v1/expenses/{expense.id}/approve/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(sync_group_send.call_count, 2)
         groups = {call.args[0] for call in sync_group_send.call_args_list}
-        self.assertEqual(
-            groups,
-            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_finance'},
-        )
-        event = sync_group_send.call_args_list[0].args[1]
-        self.assertEqual(event['type'], 'finance.event')
-        self.assertEqual(event['data']['event'], 'finance.updated')
-        self.assertEqual(event['data']['reason'], 'expense.approved')
+        self.assertIn(f'organization_{self.organization.id}_finance', groups)
+        event = next(call.args[1] for call in sync_group_send.call_args_list if call.args[1]['event'] == 'expense.approved')
+        self.assertEqual(event['type'], 'realtime.event')

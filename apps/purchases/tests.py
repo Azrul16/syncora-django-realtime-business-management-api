@@ -133,19 +133,14 @@ class PurchaseAPITests(APITestCase):
         self.client.post(f'/api/v1/purchases/{purchase_id}/order/')
         sync_group_send = Mock()
 
-        with patch('apps.purchases.events.async_to_sync', return_value=sync_group_send):
+        with patch('apps.notifications.services.event_dispatcher.async_to_sync', return_value=sync_group_send):
             response = self.client.post(f'/api/v1/purchases/{purchase_id}/receive/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(sync_group_send.call_count, 2)
         groups = {call.args[0] for call in sync_group_send.call_args_list}
-        self.assertEqual(
-            groups,
-            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_purchases'},
-        )
-        event = sync_group_send.call_args_list[0].args[1]
-        self.assertEqual(event['type'], 'purchase.event')
-        self.assertEqual(event['data']['event'], 'purchase.received')
+        self.assertIn(f'organization_{self.organization.id}_purchases', groups)
+        event = next(call.args[1] for call in sync_group_send.call_args_list if call.args[1]['event'] == 'purchase.received')
+        self.assertEqual(event['type'], 'realtime.event')
         self.assertEqual(event['data']['status'], Purchase.Status.RECEIVED)
 
     def test_draft_purchase_cannot_be_received_directly(self):

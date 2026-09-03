@@ -123,7 +123,8 @@ class OrganizationAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         sync_group_send.assert_called_once()
         self.assertEqual(sync_group_send.call_args.args[0], f'organization_{organization.id}')
-        self.assertEqual(sync_group_send.call_args.args[1]['type'], 'organization.updated')
+        self.assertEqual(sync_group_send.call_args.args[1]['type'], 'realtime.event')
+        self.assertEqual(sync_group_send.call_args.args[1]['event'], 'organization.updated')
         self.assertEqual(sync_group_send.call_args.args[1]['data']['name'], 'Syncora Live Company')
 
     def test_admin_member_can_update_organization(self):

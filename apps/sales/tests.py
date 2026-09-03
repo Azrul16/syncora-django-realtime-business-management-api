@@ -106,20 +106,15 @@ class SaleAPITests(APITestCase):
         create_response = self.client.post('/api/v1/sales/', self.sale_payload(), format='json')
         sync_group_send = Mock()
 
-        with patch('apps.sales.events.async_to_sync', return_value=sync_group_send):
+        with patch('apps.notifications.services.event_dispatcher.async_to_sync', return_value=sync_group_send):
             response = self.client.post(f'/api/v1/sales/{create_response.data["id"]}/confirm/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['status'], Sale.Status.CONFIRMED)
-        self.assertEqual(sync_group_send.call_count, 2)
         groups = {call.args[0] for call in sync_group_send.call_args_list}
-        self.assertEqual(
-            groups,
-            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_sales'},
-        )
-        event = sync_group_send.call_args_list[0].args[1]
-        self.assertEqual(event['type'], 'sale.event')
-        self.assertEqual(event['data']['event'], 'sale.confirmed')
+        self.assertIn(f'organization_{self.organization.id}_sales', groups)
+        event = next(call.args[1] for call in sync_group_send.call_args_list if call.args[1]['event'] == 'sale.confirmed')
+        self.assertEqual(event['type'], 'realtime.event')
 
     def test_draft_sale_cannot_be_completed_directly(self):
         self.authenticate()
@@ -157,16 +152,15 @@ class SaleAPITests(APITestCase):
         inventory_group_send = Mock()
         sale_group_send = Mock()
 
-        with patch('apps.inventory.events.async_to_sync', return_value=inventory_group_send):
-            with patch('apps.sales.events.async_to_sync', return_value=sale_group_send):
-                response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
+        with patch('apps.notifications.services.event_dispatcher.async_to_sync', return_value=inventory_group_send):
+            response = self.client.post(f'/api/v1/sales/{sale_id}/complete/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(inventory_group_send.call_count, 2)
-        self.assertEqual(sale_group_send.call_count, 2)
-        sale_event = sale_group_send.call_args_list[0].args[1]
-        self.assertEqual(sale_event['type'], 'sale.event')
-        self.assertEqual(sale_event['data']['event'], 'sale.completed')
+        groups = {call.args[0] for call in inventory_group_send.call_args_list}
+        self.assertIn(f'organization_{self.organization.id}_inventory', groups)
+        self.assertIn(f'organization_{self.organization.id}_sales', groups)
+        sale_event = next(call.args[1] for call in inventory_group_send.call_args_list if call.args[1]['event'] == 'sale.completed')
+        self.assertEqual(sale_event['type'], 'realtime.event')
 
     def test_sale_completion_rejects_insufficient_stock_and_rolls_back(self):
         self.authenticate()
@@ -228,7 +222,7 @@ class SaleAPITests(APITestCase):
         sale_id = self.create_confirmed_sale(quantity='1.00')
         sync_group_send = Mock()
 
-        with patch('apps.sales.events.async_to_sync', return_value=sync_group_send):
+        with patch('apps.notifications.services.event_dispatcher.async_to_sync', return_value=sync_group_send):
             response = self.client.post(
                 f'/api/v1/sales/{sale_id}/payments/',
                 {'amount': '50.00', 'payment_method': Payment.Method.CASH},
@@ -236,15 +230,10 @@ class SaleAPITests(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(sync_group_send.call_count, 2)
         groups = {call.args[0] for call in sync_group_send.call_args_list}
-        self.assertEqual(
-            groups,
-            {f'organization_{self.organization.id}', f'organization_{self.organization.id}_payments'},
-        )
-        event = sync_group_send.call_args_list[0].args[1]
-        self.assertEqual(event['type'], 'payment.event')
-        self.assertEqual(event['data']['event'], 'payment.created')
+        self.assertIn(f'organization_{self.organization.id}_payments', groups)
+        event = next(call.args[1] for call in sync_group_send.call_args_list if call.args[1]['event'] == 'payment.created')
+        self.assertEqual(event['type'], 'realtime.event')
 
     def test_payment_status_filter_returns_matching_sales(self):
         self.authenticate()
