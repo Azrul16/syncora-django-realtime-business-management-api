@@ -184,6 +184,8 @@ python manage.py check
 python manage.py test
 ```
 
+GitHub Actions runs backend checks, migrations, schema validation, and tests on pushes to `main` and on pull requests.
+
 Performance validation:
 
 ```bash
