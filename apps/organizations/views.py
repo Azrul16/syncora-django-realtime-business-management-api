@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from apps.notifications.event_types import EventType, build_realtime_event
+from apps.notifications.services.audit import record_audit_event
 
 from apps.branches.models import Branch
 
@@ -117,9 +118,18 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             raise ValidationError({'user_email': 'User is already an active member.'})
 
         if not created:
+            old_role = membership.role
             membership.role = role
             membership.is_active = True
             membership.save(update_fields=['role', 'is_active'])
+            if old_role != role:
+                record_audit_event(
+                    action='role.changed',
+                    request=self.request,
+                    organization=organization,
+                    target=membership.user,
+                    metadata={'old_role': old_role, 'new_role': role},
+                )
 
         self.update_branch_assignments(membership, data.get('branches'))
         return membership
@@ -135,15 +145,34 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         if membership.is_owner and (new_role != membership.role or not new_is_active):
             self.ensure_not_last_owner(membership)
 
+        old_role = membership.role
+        old_is_active = membership.is_active
         membership.role = new_role
         membership.is_active = new_is_active
         membership.save(update_fields=['role', 'is_active'])
+        if old_role != new_role:
+            record_audit_event(
+                action='role.changed',
+                request=self.request,
+                organization=membership.organization,
+                target=membership.user,
+                metadata={'old_role': old_role, 'new_role': new_role},
+            )
+        if old_is_active != new_is_active:
+            record_audit_event(
+                action='membership.status.changed',
+                request=self.request,
+                organization=membership.organization,
+                target=membership.user,
+                metadata={'old_is_active': old_is_active, 'new_is_active': new_is_active},
+            )
         self.update_branch_assignments(membership, data.get('branches'))
         return membership
 
     def update_branch_assignments(self, membership, branch_ids):
         if branch_ids is None:
             return
+        old_branch_ids = sorted(membership.branches.values_list('id', flat=True))
         branches = Branch.objects.filter(
             organization=membership.organization,
             id__in=branch_ids,
@@ -151,6 +180,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         if branches.count() != len(set(branch_ids)):
             raise ValidationError({'branches': 'All assigned branches must belong to this organization.'})
         membership.branches.set(branches)
+        new_branch_ids = sorted(branches.values_list('id', flat=True))
+        if old_branch_ids != new_branch_ids:
+            record_audit_event(
+                action='branch.access.changed',
+                request=self.request,
+                organization=membership.organization,
+                target=membership.user,
+                metadata={'old_branches': old_branch_ids, 'new_branches': new_branch_ids},
+            )
 
     def ensure_can_manage_membership(self, actor_membership, membership):
         if not actor_membership or not actor_membership.is_admin:

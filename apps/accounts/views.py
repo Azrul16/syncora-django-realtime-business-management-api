@@ -4,6 +4,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from apps.notifications.services.audit import record_audit_event
+
 from .serializers import (
     ChangePasswordSerializer,
     LoginResponseSerializer,
@@ -21,6 +23,7 @@ def login(request):
     serializer = LoginSerializer(data=request.data, context={'request': request})
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
+    record_audit_event(action='user.login', request=request, actor=data['user'])
     return Response(
         LoginResponseSerializer(
             {
@@ -41,6 +44,7 @@ def logout(request):
     serializer = LogoutSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
+    record_audit_event(action='user.logout', request=request)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -50,6 +54,7 @@ def change_password(request):
     serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
     serializer.is_valid(raise_exception=True)
     serializer.save()
+    record_audit_event(action='password.changed', request=request)
     return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
 
 
