@@ -74,6 +74,7 @@ Production PostgreSQL setup notes are available in `docs/postgresql-production.m
 Static and media deployment notes are available in `docs/static-media.md`.
 Nginx reverse proxy notes are available in `docs/nginx.md`.
 HTTPS and secure WebSocket notes are available in `docs/https.md`.
+Backup and health check notes are available in `docs/backups.md`.
 
 ## WebSocket Scaling
 

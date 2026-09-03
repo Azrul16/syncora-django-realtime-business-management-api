@@ -109,6 +109,12 @@ Main API prefix:
 /api/v1/
 ```
 
+Health check:
+
+```text
+http://127.0.0.1:8000/api/health/
+```
+
 ## Installation
 
 ```bash
@@ -283,6 +289,7 @@ Deployment preparation notes are maintained in:
 - `docs/nginx.md`
 - `docs/https.md`
 - `docs/cicd.md`
+- `docs/backups.md`
 
 GitHub repository metadata guidance is maintained in:
 
