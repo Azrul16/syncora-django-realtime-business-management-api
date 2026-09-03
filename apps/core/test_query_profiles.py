@@ -114,3 +114,17 @@ class QueryProfileTests(APITestCase):
             f'/api/v1/dashboard/summary/?organization={self.organization.id}',
             max_queries=18,
         )
+
+    def test_page_size_query_param_is_capped(self):
+        response = self.client.get('/api/v1/products/?page_size=1000')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 25)
+        self.assertIn('count', response.data)
+
+    def test_page_size_query_param_can_reduce_list_size(self):
+        response = self.client.get('/api/v1/products/?page_size=5')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 5)
+        self.assertEqual(response.data['count'], 25)

@@ -138,7 +138,7 @@ REST_FRAMEWORK = {
         'auth': '10/minute',
         'reports': '120/minute',
     },
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
 }
 
