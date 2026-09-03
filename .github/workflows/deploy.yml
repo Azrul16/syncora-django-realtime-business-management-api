@@ -1,0 +1,44 @@
+name: Production Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - Backend Tests
+    branches:
+      - main
+    types:
+      - completed
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.PRODUCTION_SSH_KEY }}" > ~/.ssh/syncora_deploy_key
+          chmod 600 ~/.ssh/syncora_deploy_key
+          ssh-keyscan -H "${{ secrets.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy application
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_APP_DIR: ${{ secrets.PRODUCTION_APP_DIR }}
+          PRODUCTION_SERVICE: ${{ secrets.PRODUCTION_SERVICE }}
+        run: |
+          ssh -i ~/.ssh/syncora_deploy_key "$PRODUCTION_USER@$PRODUCTION_HOST" << EOF
+            set -euo pipefail
+            cd "$PRODUCTION_APP_DIR"
+            git pull --ff-only origin main
+            . .venv/bin/activate
+            pip install -r requirements.txt
+            python manage.py migrate --noinput
+            python manage.py collectstatic --noinput
+            sudo systemctl restart "$PRODUCTION_SERVICE"
+            sudo systemctl --no-pager --full status "$PRODUCTION_SERVICE"
+          EOF

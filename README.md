@@ -186,6 +186,8 @@ python manage.py test
 
 GitHub Actions runs backend checks, migrations, schema validation, and tests on pushes to `main` and on pull requests.
 
+CI/CD workflow documentation is available in `docs/cicd.md`.
+
 Performance validation:
 
 ```bash
@@ -280,6 +282,7 @@ Deployment preparation notes are maintained in:
 - `docs/static-media.md`
 - `docs/nginx.md`
 - `docs/https.md`
+- `docs/cicd.md`
 
 GitHub repository metadata guidance is maintained in:
 
