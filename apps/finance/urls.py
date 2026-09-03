@@ -11,4 +11,6 @@ urlpatterns = [
     path('dashboard/summary/', views.dashboard_summary, name='dashboard-summary'),
     path('dashboard/sales-trend/', views.dashboard_sales_trend, name='dashboard-sales-trend'),
     path('dashboard/profit-trend/', views.dashboard_profit_trend, name='dashboard-profit-trend'),
+    path('dashboard/top-products/', views.dashboard_top_products, name='dashboard-top-products'),
+    path('dashboard/slow-moving-products/', views.dashboard_slow_moving_products, name='dashboard-slow-moving-products'),
 ]

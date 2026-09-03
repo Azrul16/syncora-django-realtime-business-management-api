@@ -161,3 +161,20 @@ def dashboard_profit_trend(request):
     service = get_dashboard_service(request)
     granularity = request.query_params.get('granularity', 'day')
     return Response(serialize_money(service.get_profit_trend(granularity=granularity)))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_top_products(request):
+    service = get_dashboard_service(request)
+    limit = int(request.query_params.get('limit', 10))
+    return Response(serialize_money(service.get_top_products(limit=limit)))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_slow_moving_products(request):
+    service = get_dashboard_service(request)
+    days = int(request.query_params.get('days', 30))
+    limit = int(request.query_params.get('limit', 10))
+    return Response(service.get_slow_moving_products(days=days, limit=limit))

@@ -1,5 +1,8 @@
-from django.db.models import Count, DecimalField, F, Sum
+from datetime import timedelta
+
+from django.db.models import Avg, Count, DecimalField, F, Max, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
+from django.utils import timezone
 
 from apps.customers.models import Customer
 from apps.inventory.models import InventoryStock
@@ -127,3 +130,53 @@ class DashboardAnalyticsService:
             'week': TruncWeek,
             'month': TruncMonth,
         }.get(granularity, TruncDay)
+
+    def get_top_products(self, limit=10):
+        queryset = SaleItem.objects.filter(sale__in=self.financials.get_sales_queryset())
+        return [
+            {
+                'product_id': row['product_id'],
+                'product': row['product__name'],
+                'quantity_sold': decimal_sum(row['quantity_sold']),
+                'revenue': decimal_sum(row['revenue']),
+                'profit': decimal_sum(row['profit']),
+                'average_selling_price': decimal_sum(row['average_selling_price']),
+                'last_sold_date': row['last_sold_date'].isoformat() if row['last_sold_date'] else None,
+            }
+            for row in queryset.values('product_id', 'product__name')
+            .annotate(
+                quantity_sold=Sum('quantity', output_field=DecimalField(max_digits=14, decimal_places=2)),
+                revenue=Sum(F('quantity') * F('unit_price'), output_field=DecimalField(max_digits=14, decimal_places=2)),
+                profit=Sum(
+                    F('quantity') * (F('unit_price') - F('unit_cost')),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                ),
+                average_selling_price=Avg('unit_price', output_field=DecimalField(max_digits=14, decimal_places=2)),
+                last_sold_date=Max('sale__sale_date'),
+            )
+            .order_by('-quantity_sold', '-revenue')[:limit]
+        ]
+
+    def get_slow_moving_products(self, days=30, limit=10):
+        cutoff = timezone.localdate() - timedelta(days=days)
+        recent_product_ids = SaleItem.objects.filter(
+            sale__organization=self.organization,
+            sale__status='COMPLETED',
+            sale__sale_date__gte=cutoff,
+        ).values_list('product_id', flat=True)
+        stocked_product_ids = self.get_inventory_queryset().filter(
+            quantity__gt=0
+        ).values_list('product_id', flat=True)
+        products = Product.objects.filter(
+            organization=self.organization,
+            id__in=stocked_product_ids,
+            is_active=True,
+        ).exclude(id__in=recent_product_ids)
+        return [
+            {
+                'product_id': product.id,
+                'product': product.name,
+                'sku': product.sku,
+            }
+            for product in products.order_by('name')[:limit]
+        ]
