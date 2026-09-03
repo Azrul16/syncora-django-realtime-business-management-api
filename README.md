@@ -139,6 +139,8 @@ DB_PORT=5432
 
 Keep `.env` private. It is ignored by git.
 
+More setup notes are available in `docs/setup.md`.
+
 ## Database Setup
 
 Create the PostgreSQL database and user:
