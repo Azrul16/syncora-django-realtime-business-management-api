@@ -1,4 +1,5 @@
-from django.db.models import DecimalField, F, Sum
+from django.db.models import Count, DecimalField, F, Sum
+from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 
 from apps.customers.models import Customer
 from apps.inventory.models import InventoryStock
@@ -66,3 +67,27 @@ class DashboardAnalyticsService:
                 'new': self.get_customer_queryset().count(),
             },
         }
+
+    def get_sales_trend(self, granularity='day'):
+        trunc = {
+            'week': TruncWeek,
+            'month': TruncMonth,
+        }.get(granularity, TruncDay)
+        rows = (
+            self.financials.get_sales_queryset()
+            .annotate(period=trunc('sale_date'))
+            .values('period')
+            .annotate(
+                sales_count=Count('id'),
+                revenue=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            )
+            .order_by('period')
+        )
+        return [
+            {
+                'date': (row['period'].date() if hasattr(row['period'], 'date') else row['period']).isoformat(),
+                'sales_count': row['sales_count'],
+                'revenue': decimal_sum(row['revenue']),
+            }
+            for row in rows
+        ]
