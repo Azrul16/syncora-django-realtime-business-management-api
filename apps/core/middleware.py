@@ -1,9 +1,42 @@
+import logging
+import time
+import uuid
 from urllib.parse import parse_qs
 
 from channels.auth import AuthMiddlewareStack
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.authentication import JWTAuthentication
+
+
+logger = logging.getLogger('syncora.requests')
+
+
+class RequestLoggingMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request_id = request.headers.get('X-Request-ID') or uuid.uuid4().hex
+        request.META['HTTP_X_REQUEST_ID'] = request_id
+        started = time.monotonic()
+
+        response = self.get_response(request)
+
+        duration_ms = round((time.monotonic() - started) * 1000, 2)
+        response['X-Request-ID'] = request_id
+        logger.info(
+            'request.completed',
+            extra={
+                'request_id': request_id,
+                'method': request.method,
+                'path': request.path,
+                'status_code': response.status_code,
+                'duration_ms': duration_ms,
+                'user_id': request.user.id if getattr(request, 'user', None).is_authenticated else None,
+            },
+        )
+        return response
 
 
 class JwtAuthMiddleware:

@@ -63,6 +63,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'apps.core.middleware.RequestLoggingMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -194,5 +195,55 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MAILERS = {
     'default': {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    },
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'structured': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s request_id=%(request_id)s user_id=%(user_id)s status=%(status_code)s duration_ms=%(duration_ms)s',
+        },
+        'standard': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'filters': {
+        'request_defaults': {
+            '()': 'apps.core.logging.RequestLogDefaultsFilter',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+        'request_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'structured',
+            'filters': ['request_defaults'],
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        },
+        'syncora.requests': {
+            'handlers': ['request_console'],
+            'level': os.getenv('SYNCORA_REQUEST_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'syncora.events': {
+            'handlers': ['console'],
+            'level': os.getenv('SYNCORA_EVENT_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'syncora.security': {
+            'handlers': ['console'],
+            'level': os.getenv('SYNCORA_SECURITY_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
     },
 }

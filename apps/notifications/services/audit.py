@@ -28,5 +28,5 @@ def record_audit_event(
         target_id=target_id,
         ip_address=get_client_ip(request) if request else None,
         metadata=metadata or {},
-        request_id=request.META.get('HTTP_X_REQUEST_ID', '') if request else '',
+        request_id=getattr(request, 'META', {}).get('HTTP_X_REQUEST_ID', '') if request else '',
     )

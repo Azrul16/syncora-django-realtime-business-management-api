@@ -1,3 +1,5 @@
+import logging
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -6,6 +8,8 @@ from apps.organizations.models import OrganizationMembership
 from ..event_types import EventType, build_realtime_event
 from ..models import ActivityLog, Notification
 
+
+logger = logging.getLogger('syncora.events')
 
 DASHBOARD_EVENTS = {
     EventType.INVENTORY_UPDATED,
@@ -50,6 +54,17 @@ def dispatch_event(
 ):
     data = data or {}
     resource_type, resource_id = get_resource_identity(resource)
+    logger.info(
+        'event.dispatch',
+        extra={
+            'event': event,
+            'organization_id': organization.id,
+            'branch_id': branch.id if branch else None,
+            'actor_id': actor.id if getattr(actor, 'is_authenticated', False) else None,
+            'resource_type': resource_type,
+            'resource_id': resource_id,
+        },
+    )
 
     activity = ActivityLog.objects.create(
         organization=organization,

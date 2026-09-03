@@ -211,6 +211,29 @@ class SecurityPermissionTests(APITestCase):
             ).exists()
         )
 
+    def test_request_id_is_returned_and_saved_on_audit_log(self):
+        self.authenticate(self.owner)
+
+        response = self.client.post(
+            '/api/v1/auth/change-password/',
+            {
+                'current_password': self.password,
+                'new_password': 'new-test-pass-1234',
+            },
+            format='json',
+            HTTP_X_REQUEST_ID='req-security-test',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['X-Request-ID'], 'req-security-test')
+        self.assertTrue(
+            AuditLog.objects.filter(
+                actor=self.owner,
+                action='password.changed',
+                request_id='req-security-test',
+            ).exists()
+        )
+
     def create_completed_sale(self, branch, amount):
         sale = Sale.objects.create(
             organization=self.organization,
