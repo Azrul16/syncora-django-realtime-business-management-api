@@ -1,31 +1,132 @@
-# Syncora Django Realtime Business Management API
+# Syncora
 
-Syncora is a Django REST Framework API foundation for realtime business management workflows. It starts with accounts, organizations, organization memberships, role-based access concepts, JWT authentication, PostgreSQL settings, and Django Channels WebSocket support.
+Real-Time Multi-Tenant Business Management Platform
+
+## Overview
+
+Syncora is a real-time multi-tenant business management backend designed for small and medium businesses. It provides centralized management of organizations, branches, inventory, purchases, sales, customers, suppliers, expenses, payments, analytics, notifications, and business activity while maintaining strict tenant isolation.
+
+The project is built as a portfolio-ready Django backend that demonstrates REST API design, PostgreSQL data modeling, role-based access control, transactional business workflows, WebSocket updates, performance optimization, and production-minded configuration.
 
 ## Features
 
 - Email-based custom user model
-- Organization and membership models
-- Owner, admin, manager, and employee role foundation
-- Versioned REST API under `/api/v1/`
-- JWT authentication endpoints
-- Django Channels ASGI/WebSocket foundation
-- Environment-driven PostgreSQL configuration
+- Multi-tenant organizations and memberships
+- Branch-level access control
+- Role and permission system for owners, admins, managers, sales, inventory, accounting, and employees
+- Product categories, products, variants, and inventory stock
+- Purchasing workflow with order, receive, cancellation, stock increase, and activity events
+- Sales workflow with confirm, complete, cancellation, payment tracking, stock deduction, and finance updates
+- Expenses with approval/rejection flow and financial summaries
+- Dashboard analytics for revenue, profit, inventory risk, top products, customers, suppliers, and branches
+- Real-time notifications, activity logs, audit logs, and WebSocket broadcasts
+- JWT authentication with refresh rotation and blacklist support
+- API throttling, pagination, filtering, search, query profiling, and database indexes
+- Centralized API error envelope and structured request logging
 
-## Getting Started
+## Tech Stack
+
+- Django
+- Django REST Framework
+- PostgreSQL
+- Django Channels
+- WebSockets
+- Simple JWT
+- django-filter
+- drf-spectacular
+- Daphne ASGI server
+
+## Core Business Modules
+
+- `accounts`: custom email users and authentication helpers
+- `organizations`: tenants, memberships, roles, permissions, and branch access
+- `branches`: tenant branches and branch-scoped operations
+- `products`: categories, products, variants, pricing, and soft deletion
+- `inventory`: stock records, stock movements, and transactional adjustments
+- `suppliers`: supplier records and supplier analytics
+- `purchases`: purchase orders, receiving, stock increases, and purchasing events
+- `customers`: customer records and customer analytics
+- `sales`: sales orders, completion, payments, stock deduction, and sales events
+- `expenses`: expense categories, expenses, approval workflow, and finance events
+- `finance`: financial summaries and dashboard analytics
+- `notifications`: notifications, activity logs, audit logs, and event dispatching
+- `reports`: organization dashboard summary endpoint
+
+## Realtime Architecture
+
+Business actions publish through a centralized event dispatcher. The dispatcher creates activity records, optional notifications, and WebSocket messages for organization, branch, module, dashboard, and user notification groups.
+
+WebSocket endpoints:
+
+```text
+ws://localhost:8000/ws/organizations/{organization_id}/?token={access_token}
+ws://localhost:8000/ws/organizations/{organization_id}/inventory/?token={access_token}
+ws://localhost:8000/ws/organizations/{organization_id}/purchases/?token={access_token}
+ws://localhost:8000/ws/organizations/{organization_id}/sales/?token={access_token}
+ws://localhost:8000/ws/organizations/{organization_id}/payments/?token={access_token}
+```
+
+## Multi-Tenant Architecture
+
+Every major business record belongs to an organization. Branch-scoped records also belong to a branch. API querysets are scoped by active organization membership and, where applicable, branch assignments.
+
+Tenant isolation is enforced through:
+
+- authenticated membership checks
+- object-level authorization
+- branch-level query filtering
+- serializer queryset restrictions
+- role and permission checks
+- security regression tests for cross-tenant and cross-branch access
+
+## Security
+
+- JWT access and refresh authentication
+- Refresh-token rotation and blacklist support
+- Role-based and object-level authorization
+- Branch-restricted access
+- API throttling for anonymous, authenticated, auth, and report traffic
+- Centralized validation and API error handling
+- Structured request logging with request IDs
+- Append-only audit logs for sensitive actions
+- Local development auth bypass controlled by environment variables
+
+## API Documentation
+
+Interactive API documentation is available after running the server:
+
+```text
+http://127.0.0.1:8000/api/docs/
+http://127.0.0.1:8000/api/redoc/
+http://127.0.0.1:8000/api/schema/
+```
+
+Main API prefix:
+
+```text
+/api/v1/
+```
+
+## Installation
 
 ```bash
+git clone https://github.com/Azrul16/syncora-django-realtime-business-management-api.git
+cd syncora-django-realtime-business-management-api
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create a local `.env` file from `.env.example`, then set your database password:
+## Environment Variables
+
+Create `.env` from `.env.example`:
 
 ```env
 SECRET_KEY=your-local-secret-key
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
+DISABLE_AUTH_FOR_LOCAL_DEV=False
+LOCAL_DEV_AUTH_EMAIL=
 
 DB_NAME=syncora
 DB_USER=syncora_user
@@ -33,6 +134,10 @@ DB_PASSWORD=your_password
 DB_HOST=localhost
 DB_PORT=5432
 ```
+
+Keep `.env` private. It is ignored by git.
+
+## Database Setup
 
 Create the PostgreSQL database and user:
 
@@ -42,161 +147,131 @@ CREATE USER syncora_user WITH PASSWORD 'your_password';
 GRANT ALL PRIVILEGES ON DATABASE syncora TO syncora_user;
 ```
 
-Run migrations and start the server:
+Run migrations:
 
 ```bash
 python manage.py migrate
+```
+
+## Demo Data
+
+Seed a local demo company with branches, staff, products, suppliers, customers, inventory, purchases, sales, expenses, notifications, and audit records:
+
+```bash
+python manage.py seed_demo
+```
+
+## Running The Project
+
+```bash
 python manage.py runserver
 ```
 
-## API
+For ASGI/WebSocket development:
 
-During local development, you can temporarily bypass JWT auth for REST API testing by setting:
-
-```env
-DISABLE_AUTH_FOR_LOCAL_DEV=True
-LOCAL_DEV_AUTH_EMAIL=azrul@gmail.com
+```bash
+daphne config.asgi:application
 ```
 
-Set `DISABLE_AUTH_FOR_LOCAL_DEV=False` before enabling production-style authentication again.
+## Running Tests
 
-- `POST /api/v1/auth/token/`
-- `POST /api/v1/auth/token/refresh/`
-- `GET /api/v1/organizations/`
-- `POST /api/v1/organizations/`
-- `GET /api/v1/organizations/{id}/`
-- `PATCH /api/v1/organizations/{id}/`
-- `GET /api/v1/organizations/{id}/members/`
-- `POST /api/v1/organizations/{id}/members/`
-- `PATCH /api/v1/organizations/{id}/members/{membership_id}/`
-- `DELETE /api/v1/organizations/{id}/members/{membership_id}/`
-- `GET /api/v1/branches/`
-- `POST /api/v1/branches/`
-- `GET /api/v1/products/`
-- `POST /api/v1/products/`
-- `GET /api/v1/categories/`
-- `POST /api/v1/categories/`
-- `GET /api/v1/product-variants/`
-- `POST /api/v1/product-variants/`
-- `GET /api/v1/inventory/`
-- `POST /api/v1/inventory/`
-- `POST /api/v1/inventory/{id}/increase/`
-- `POST /api/v1/inventory/{id}/decrease/`
-- `GET /api/v1/stock-movements/`
-- `GET /api/v1/suppliers/`
-- `POST /api/v1/suppliers/`
-- `GET /api/v1/purchases/`
-- `POST /api/v1/purchases/`
-- `POST /api/v1/purchases/{id}/order/`
-- `POST /api/v1/purchases/{id}/receive/`
-- `POST /api/v1/purchases/{id}/cancel/`
-- `GET /api/v1/customers/`
-- `POST /api/v1/customers/`
-- `GET /api/v1/sales/`
-- `POST /api/v1/sales/`
-- `POST /api/v1/sales/{id}/confirm/`
-- `POST /api/v1/sales/{id}/complete/`
-- `POST /api/v1/sales/{id}/cancel/`
-- `GET /api/v1/sales/{id}/payments/`
-- `POST /api/v1/sales/{id}/payments/`
-- `GET /api/v1/expenses/`
-- `POST /api/v1/expenses/`
-- `GET /api/v1/organizations/{id}/dashboard/`
+```bash
+python manage.py check
+python manage.py test
+```
 
-Organization owners and admins can manage members. Admins can manage non-owner members, while only owners can assign or change owner memberships.
-Organization owners, admins, and managers can manage operational business records. Employees can read organization data but cannot create or update these records.
-Inventory quantity changes go through a service layer that records stock movement history and rejects negative stock.
+Performance validation:
 
-## WebSockets
+```bash
+python manage.py validate_performance --products 100 --customers 100 --sales 200
+```
 
-Organization updates are exposed through:
+## API Examples
+
+Get JWT tokens:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/token/ ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"owner@example.com\",\"password\":\"your-password\"}"
+```
+
+Create an organization:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/organizations/ ^
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"Demo Electronics Ltd.\",\"email\":\"demo@syncora.local\"}"
+```
+
+Create a sale:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/sales/ ^
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"branch\":1,\"customer\":1,\"items\":[{\"product\":1,\"quantity\":\"2.00\",\"unit_price\":\"100.00\"}]}"
+```
+
+Complete a sale:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/sales/1/complete/ ^
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+View dashboard summary:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/dashboard/summary/?organization=1" ^
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+## Project Structure
 
 ```text
-ws://localhost:8000/ws/organizations/{organization_id}/?token={access_token}
+apps/
+  accounts/
+  organizations/
+  branches/
+  products/
+  inventory/
+  suppliers/
+  purchases/
+  customers/
+  sales/
+  expenses/
+  finance/
+  notifications/
+  reports/
+  core/
+config/
+docs/
+manage.py
+requirements.txt
 ```
 
-The token must be a valid JWT access token for a user with an active membership in the organization. On connect, the server sends:
+## Database Schema
 
-Inventory-specific clients can also connect to:
+High-level database documentation is maintained in:
 
-```text
-ws://localhost:8000/ws/organizations/{organization_id}/inventory/?token={access_token}
-```
+- `docs/er-diagram.md`
 
-Purchase-specific clients can connect to:
+## Performance
 
-```text
-ws://localhost:8000/ws/organizations/{organization_id}/purchases/?token={access_token}
-```
+Performance notes and the benchmark command are documented in:
 
-Sales and payment clients can connect to:
+- `docs/performance.md`
 
-```text
-ws://localhost:8000/ws/organizations/{organization_id}/sales/?token={access_token}
-ws://localhost:8000/ws/organizations/{organization_id}/payments/?token={access_token}
-```
+## Future Improvements
 
-```json
-{
-  "type": "connection.ready"
-}
-```
-
-When an organization is updated through the API, connected clients receive:
-
-```json
-{
-  "type": "organization.updated",
-  "data": {
-    "id": 1,
-    "name": "Example Organization"
-  }
-}
-```
-
-Inventory changes from completed sales are also broadcast to connected organization clients:
-
-```json
-{
-  "type": "inventory.stock_updated",
-  "data": {
-    "id": 1,
-    "branch": 1,
-    "product": 1,
-    "quantity": "16.00",
-    "is_low_stock": false
-  }
-}
-```
-
-Purchase workflow events are broadcast as purchases are ordered, received, or cancelled:
-
-```json
-{
-  "type": "purchase.received",
-  "data": {
-    "purchase_id": 31,
-    "purchase_number": "PO-000031",
-    "status": "RECEIVED",
-    "total": "1050000.00"
-  }
-}
-```
-
-Sales workflow and payment events are broadcast as sales are confirmed, completed, cancelled, or paid:
-
-```json
-{
-  "type": "sale.completed",
-  "data": {
-    "sale_id": 12,
-    "sale_number": "SL-000012",
-    "status": "COMPLETED",
-    "total": "343.00",
-    "payment_status": "UNPAID"
-  }
-}
-```
+- Redis channel layer for multi-instance WebSocket deployment
+- Docker Compose for local PostgreSQL, Redis, and Django
+- CI pipeline for linting, tests, schema generation, and migrations
+- Advanced PostgreSQL full-text search for large product/customer catalogs
+- Export endpoints for reports and analytics
+- Frontend dashboard client
 
 ## License
 
