@@ -261,12 +261,14 @@ requirements.txt
 High-level database documentation is maintained in:
 
 - `docs/er-diagram.md`
+- `docs/portfolio.md`
 
 ## Performance
 
 Performance notes and the benchmark command are documented in:
 
 - `docs/performance.md`
+- `docs/final-qa.md`
 
 Deployment preparation notes are maintained in:
 
