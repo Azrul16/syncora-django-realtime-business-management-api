@@ -1,3 +1,4 @@
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes, throttle_scope
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -15,6 +16,12 @@ from .serializers import (
 )
 
 
+@extend_schema(
+    tags=['Authentication'],
+    request=LoginSerializer,
+    responses={200: LoginResponseSerializer},
+    description='Authenticate with email and password and receive JWT access and refresh tokens.',
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -35,9 +42,12 @@ def login(request):
         status=status.HTTP_200_OK,
     )
 
-
-
-
+@extend_schema(
+    tags=['Authentication'],
+    request=LogoutSerializer,
+    responses={204: OpenApiResponse(description='Refresh token blacklisted.')},
+    description='Blacklist a refresh token and end the current refresh session.',
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
@@ -48,6 +58,12 @@ def logout(request):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    tags=['Authentication'],
+    request=ChangePasswordSerializer,
+    responses={200: OpenApiResponse(description='Password changed successfully.')},
+    description='Change the authenticated user password after validating the current password.',
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def change_password(request):
@@ -58,6 +74,11 @@ def change_password(request):
     return Response({'detail': 'Password changed successfully.'}, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    tags=['Authentication'],
+    responses={200: UserSummarySerializer},
+    description='Return the authenticated user profile summary.',
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def me(request):

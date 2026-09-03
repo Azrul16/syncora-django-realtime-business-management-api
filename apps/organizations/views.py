@@ -1,6 +1,7 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -75,6 +76,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         serializer = OrganizationMembershipSerializer(memberships, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        parameters=[OpenApiParameter('membership_id', OpenApiTypes.INT, OpenApiParameter.PATH)],
+        request=OrganizationMembershipUpdateSerializer,
+        responses=OrganizationMembershipSerializer,
+    )
     @action(detail=True, methods=['patch', 'delete'], url_path='members/(?P<membership_id>[^/.]+)')
     def member(self, request, pk=None, membership_id=None):
         organization = self.get_object()

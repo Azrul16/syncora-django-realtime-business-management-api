@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from datetime import timedelta
 
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework.decorators import api_view, permission_classes, throttle_classes, throttle_scope
@@ -16,6 +17,17 @@ from apps.organizations.permissions import enforce_permission, get_active_member
 
 from .services.dashboard_analytics import DashboardAnalyticsService
 from .services.financial_summary import FinancialSummaryService
+
+
+COMMON_REPORT_PARAMETERS = [
+    OpenApiParameter('organization', OpenApiTypes.INT, OpenApiParameter.QUERY, required=True),
+    OpenApiParameter('branch', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+    OpenApiParameter('date_from', OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False),
+    OpenApiParameter('date_to', OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False),
+    OpenApiParameter('period', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+]
+
+LIMIT_PARAMETER = OpenApiParameter('limit', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False)
 
 
 def serialize_money(value):
@@ -140,6 +152,7 @@ def get_date_range_for_request(request):
     return date_from, date_to
 
 
+@extend_schema(tags=['Finance'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -148,6 +161,7 @@ def finance_summary(request):
     return Response(serialize_money(service.get_summary()))
 
 
+@extend_schema(tags=['Finance'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -156,6 +170,7 @@ def sales_summary(request):
     return Response(serialize_money(service.get_sales_summary()))
 
 
+@extend_schema(tags=['Finance'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -164,6 +179,7 @@ def expense_summary(request):
     return Response(serialize_money(service.get_expense_summary()))
 
 
+@extend_schema(tags=['Finance'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -172,6 +188,7 @@ def profit_summary(request):
     return Response(serialize_money(service.get_profit_summary()))
 
 
+@extend_schema(tags=['Finance'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -180,6 +197,7 @@ def cash_flow_summary(request):
     return Response(serialize_money(service.get_cash_flow_summary()))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -188,6 +206,11 @@ def dashboard_summary(request):
     return Response(serialize_money(service.get_summary()))
 
 
+@extend_schema(
+    tags=['Reports'],
+    parameters=COMMON_REPORT_PARAMETERS + [OpenApiParameter('granularity', OpenApiTypes.STR, OpenApiParameter.QUERY)],
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -197,6 +220,11 @@ def dashboard_sales_trend(request):
     return Response(serialize_money(service.get_sales_trend(granularity=granularity)))
 
 
+@extend_schema(
+    tags=['Reports'],
+    parameters=COMMON_REPORT_PARAMETERS + [OpenApiParameter('granularity', OpenApiTypes.STR, OpenApiParameter.QUERY)],
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -206,6 +234,7 @@ def dashboard_profit_trend(request):
     return Response(serialize_money(service.get_profit_trend(granularity=granularity)))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS + [LIMIT_PARAMETER], responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -215,6 +244,14 @@ def dashboard_top_products(request):
     return Response(serialize_money(service.get_top_products(limit=limit)))
 
 
+@extend_schema(
+    tags=['Reports'],
+    parameters=COMMON_REPORT_PARAMETERS + [
+        LIMIT_PARAMETER,
+        OpenApiParameter('days', OpenApiTypes.INT, OpenApiParameter.QUERY),
+    ],
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -225,6 +262,7 @@ def dashboard_slow_moving_products(request):
     return Response(service.get_slow_moving_products(days=days, limit=limit))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -233,6 +271,7 @@ def dashboard_inventory_summary(request):
     return Response(serialize_money(service.get_inventory_summary()))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS + [LIMIT_PARAMETER], responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -242,6 +281,7 @@ def dashboard_low_stock(request):
     return Response(serialize_money(service.get_low_stock_items(limit=limit)))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS + [LIMIT_PARAMETER], responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -251,6 +291,7 @@ def dashboard_out_of_stock(request):
     return Response(serialize_money(service.get_out_of_stock_items(limit=limit)))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -259,6 +300,7 @@ def dashboard_stock_value(request):
     return Response(serialize_money(service.get_stock_value()))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS, responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -267,6 +309,7 @@ def dashboard_branches(request):
     return Response(serialize_money(service.get_branch_performance()))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS + [LIMIT_PARAMETER], responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles
@@ -276,6 +319,7 @@ def dashboard_customers(request):
     return Response(serialize_money(service.get_customer_analytics(limit=limit)))
 
 
+@extend_schema(tags=['Reports'], parameters=COMMON_REPORT_PARAMETERS + [LIMIT_PARAMETER], responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @report_throttles

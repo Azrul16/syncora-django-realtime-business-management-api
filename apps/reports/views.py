@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from drf_spectacular.utils import OpenApiTypes, extend_schema
 from django.db.models import DecimalField, F, Sum
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import NotFound
@@ -20,6 +21,7 @@ def decimal_sum(value):
     return value or Decimal('0')
 
 
+@extend_schema(tags=['Reports'], responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def organization_dashboard(request, organization_id):
