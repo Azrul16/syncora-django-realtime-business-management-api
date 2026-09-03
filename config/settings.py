@@ -140,6 +140,7 @@ REST_FRAMEWORK = {
     },
     'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'apps.core.exceptions.api_exception_handler',
 }
 
 CHANNEL_LAYERS = {

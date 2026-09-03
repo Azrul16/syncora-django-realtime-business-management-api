@@ -89,6 +89,8 @@ class SecurityPermissionTests(APITestCase):
         response = self.client.get('/api/v1/organizations/')
 
         self.assertIn(response.status_code, {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN})
+        self.assertIn('error', response.data)
+        self.assertIn('code', response.data['error'])
 
     def test_role_permissions_allow_sales_but_block_expense_approval(self):
         expense = Expense.objects.create(
@@ -107,6 +109,7 @@ class SecurityPermissionTests(APITestCase):
 
         self.assertEqual(sale_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(approval_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(approval_response.data['error']['code'], 'PERMISSION_DENIED')
 
     def test_accountant_can_view_finance_and_approve_expense(self):
         expense = Expense.objects.create(
@@ -175,6 +178,7 @@ class SecurityPermissionTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error']['code'], 'VALIDATION_ERROR')
 
     def test_soft_deleted_branch_is_hidden_from_lists(self):
         self.authenticate(self.owner)
