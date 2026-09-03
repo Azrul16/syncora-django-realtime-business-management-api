@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.customers.models import Customer
 from apps.inventory.models import InventoryStock
+from apps.branches.models import Branch
 from apps.products.models import Product
 from apps.sales.models import SaleItem
 
@@ -245,3 +246,43 @@ class DashboardAnalyticsService:
             }
             for item in items
         ]
+
+    def get_branch_performance(self):
+        branch_queryset = Branch.objects.filter(organization=self.organization, is_active=True)
+        if self.branch:
+            branch_queryset = branch_queryset.filter(id=self.branch.id)
+
+        sales_rows = self.financials.get_sales_queryset().values('branch_id').annotate(
+            revenue=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+            sales_count=Count('id'),
+        )
+        cogs_rows = SaleItem.objects.filter(sale__in=self.financials.get_sales_queryset()).values(
+            'sale__branch_id'
+        ).annotate(
+            cogs=Sum(F('quantity') * F('unit_cost'), output_field=DecimalField(max_digits=14, decimal_places=2)),
+        )
+        low_stock_rows = InventoryStock.objects.filter(
+            organization=self.organization,
+            quantity__lte=F('reorder_level'),
+        ).values('branch_id').annotate(low_stock=Count('id'))
+        sales_by_branch = {row['branch_id']: row for row in sales_rows}
+        cogs_by_branch = {row['sale__branch_id']: decimal_sum(row['cogs']) for row in cogs_rows}
+        low_stock_by_branch = {row['branch_id']: row['low_stock'] for row in low_stock_rows}
+
+        rows = []
+        for branch in branch_queryset:
+            sales = sales_by_branch.get(branch.id, {})
+            revenue = decimal_sum(sales.get('revenue'))
+            cogs = cogs_by_branch.get(branch.id, decimal_sum(None))
+            rows.append(
+                {
+                    'branch_id': branch.id,
+                    'branch': branch.name,
+                    'revenue': revenue,
+                    'cost_of_goods_sold': cogs,
+                    'gross_profit': revenue - cogs,
+                    'sales_count': sales.get('sales_count', 0),
+                    'low_stock': low_stock_by_branch.get(branch.id, 0),
+                }
+            )
+        return sorted(rows, key=lambda row: (row['revenue'], row['gross_profit']), reverse=True)

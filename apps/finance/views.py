@@ -208,3 +208,10 @@ def dashboard_out_of_stock(request):
 def dashboard_stock_value(request):
     service = get_dashboard_service(request)
     return Response(serialize_money(service.get_stock_value()))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_branches(request):
+    service = get_dashboard_service(request)
+    return Response(serialize_money(service.get_branch_performance()))
