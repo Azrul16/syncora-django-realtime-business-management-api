@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.views import SoftDeleteViewSetMixin
 from apps.organizations.models import Organization
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
@@ -12,7 +13,7 @@ from .models import Product, ProductCategory, ProductVariant
 from .serializers import ProductCategorySerializer, ProductSerializer, ProductVariantSerializer
 
 
-class ProductCategoryViewSet(viewsets.ModelViewSet):
+class ProductCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ProductCategorySerializer
     permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
     filterset_fields = ['organization', 'is_active', 'slug']
@@ -23,6 +24,7 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
         return ProductCategory.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
+            is_deleted=False,
         ).select_related('organization').distinct()
 
     def perform_create(self, serializer):
@@ -33,7 +35,7 @@ class ProductCategoryViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
     filterset_fields = ['organization', 'is_active', 'sku', 'slug']
@@ -44,6 +46,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Product.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
+            is_deleted=False,
         ).select_related('organization').distinct()
 
     def perform_create(self, serializer):

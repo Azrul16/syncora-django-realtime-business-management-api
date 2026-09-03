@@ -1,8 +1,10 @@
 from django.db import models
 from django.utils.text import slugify
 
+from apps.core.models import SoftDeleteModel
 
-class Branch(models.Model):
+
+class Branch(SoftDeleteModel):
     organization = models.ForeignKey(
         'organizations.Organization',
         on_delete=models.CASCADE,

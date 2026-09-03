@@ -3,6 +3,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 
+from apps.core.views import SoftDeleteViewSetMixin
 from apps.organizations.models import Organization
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
@@ -13,7 +14,7 @@ from .models import Branch
 from .serializers import BranchSerializer
 
 
-class BranchViewSet(viewsets.ModelViewSet):
+class BranchViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = BranchSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
     filterset_fields = ['organization', 'is_active', 'slug']
@@ -24,6 +25,7 @@ class BranchViewSet(viewsets.ModelViewSet):
         queryset = Branch.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
+            is_deleted=False,
         ).select_related('organization').distinct()
         memberships = self.request.user.organization_memberships.prefetch_related('branches').filter(is_active=True)
         restricted_branch_ids = []

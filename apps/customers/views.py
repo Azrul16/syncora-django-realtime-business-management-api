@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.views import SoftDeleteViewSetMixin
 from apps.finance.services.dashboard_analytics import DashboardAnalyticsService
 
 from apps.organizations.models import Organization
@@ -26,7 +27,7 @@ def serialize_money(value):
     return value
 
 
-class CustomerViewSet(viewsets.ModelViewSet):
+class CustomerViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
     filterset_fields = ['organization', 'is_active']
@@ -37,6 +38,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
         return Customer.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
+            is_deleted=False,
         ).select_related('organization').distinct()
 
     def perform_create(self, serializer):

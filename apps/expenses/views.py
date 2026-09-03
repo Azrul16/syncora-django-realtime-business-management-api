@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.views import SoftDeleteViewSetMixin
 from apps.notifications.event_types import EventType
 from apps.notifications.services.event_dispatcher import dispatch_event
 from apps.organizations.permissions import (
@@ -19,7 +20,7 @@ from .models import Expense, ExpenseCategory
 from .serializers import ExpenseCategorySerializer, ExpenseSerializer
 
 
-class ExpenseCategoryViewSet(viewsets.ModelViewSet):
+class ExpenseCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ExpenseCategorySerializer
     permission_classes = [IsAuthenticated, IsOrganizationMemberReadOnlyOrManager]
     filterset_fields = ['organization', 'is_active']
@@ -30,6 +31,7 @@ class ExpenseCategoryViewSet(viewsets.ModelViewSet):
         return ExpenseCategory.objects.filter(
             organization__memberships__user=self.request.user,
             organization__memberships__is_active=True,
+            is_deleted=False,
         ).select_related('organization').distinct()
 
     def perform_create(self, serializer):

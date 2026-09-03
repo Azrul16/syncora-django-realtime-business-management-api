@@ -1,7 +1,9 @@
 from django.db import models
 
+from apps.core.models import SoftDeleteModel
 
-class Supplier(models.Model):
+
+class Supplier(SoftDeleteModel):
     organization = models.ForeignKey(
         'organizations.Organization',
         on_delete=models.CASCADE,

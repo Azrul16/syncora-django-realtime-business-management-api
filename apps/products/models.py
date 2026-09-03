@@ -1,8 +1,10 @@
 from django.db import models
 from django.utils.text import slugify
 
+from apps.core.models import SoftDeleteModel
 
-class ProductCategory(models.Model):
+
+class ProductCategory(SoftDeleteModel):
     organization = models.ForeignKey(
         'organizations.Organization',
         on_delete=models.CASCADE,
@@ -37,7 +39,7 @@ class ProductCategory(models.Model):
         return self.name
 
 
-class Product(models.Model):
+class Product(SoftDeleteModel):
     organization = models.ForeignKey(
         'organizations.Organization',
         on_delete=models.CASCADE,

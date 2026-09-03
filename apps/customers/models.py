@@ -1,7 +1,9 @@
 from django.db import models
 
+from apps.core.models import SoftDeleteModel
 
-class Customer(models.Model):
+
+class Customer(SoftDeleteModel):
     organization = models.ForeignKey(
         'organizations.Organization',
         on_delete=models.CASCADE,
