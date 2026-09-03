@@ -115,6 +115,13 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
         'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60' if not DEBUG else '0')),
+        'OPTIONS': {
+            key: value
+            for key, value in {
+                'sslmode': os.getenv('DB_SSLMODE', ''),
+            }.items()
+            if value
+        },
     }
 }
 

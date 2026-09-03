@@ -30,6 +30,7 @@ DB_PASSWORD=strong-production-password
 DB_HOST=production-postgres-host
 DB_PORT=5432
 DB_CONN_MAX_AGE=60
+DB_SSLMODE=require
 
 SECURE_SSL_REDIRECT=True
 SESSION_COOKIE_SECURE=True
@@ -60,6 +61,7 @@ EMAIL_USE_SSL=False
 - Set `CSRF_TRUSTED_ORIGINS` to the HTTPS API and frontend origins.
 - Keep `SECURE_PROXY_SSL_HEADER` enabled behind an HTTPS-terminating proxy.
 - Configure PostgreSQL credentials from the environment.
+- Use a dedicated PostgreSQL user, not the `postgres` superuser.
 - Run `python manage.py migrate`.
 - Run `python manage.py collectstatic --noinput`.
 - Serve through HTTPS.
@@ -68,6 +70,7 @@ EMAIL_USE_SSL=False
 - Keep `.env` and production secrets out of git.
 
 Detailed ASGI deployment notes are available in `docs/asgi-deployment.md`.
+Production PostgreSQL setup notes are available in `docs/postgresql-production.md`.
 
 ## WebSocket Scaling
 
