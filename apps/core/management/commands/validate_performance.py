@@ -48,7 +48,7 @@ class Command(BaseCommand):
         for name, path in endpoints:
             with CaptureQueriesContext(connection) as queries:
                 started = perf_counter()
-                response = client.get(path, HTTP_HOST='127.0.0.1')
+                response = client.get(path, HTTP_HOST='127.0.0.1', HTTP_X_FORWARDED_PROTO='https')
                 duration_ms = round((perf_counter() - started) * 1000, 2)
             response_bytes = len(getattr(response, 'rendered_content', response.content))
             self.stdout.write(

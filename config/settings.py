@@ -1,4 +1,5 @@
 import os
+import sys
 
 from datetime import timedelta
 from pathlib import Path
@@ -16,6 +17,7 @@ def env_bool(name, default=False):
 
 
 DEBUG = env_bool('DEBUG', True)
+IS_TESTING = 'test' in sys.argv
 DISABLE_AUTH_FOR_LOCAL_DEV = env_bool('DISABLE_AUTH_FOR_LOCAL_DEV', False)
 LOCAL_DEV_AUTH_EMAIL = os.getenv('LOCAL_DEV_AUTH_EMAIL', '')
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -226,9 +228,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG)
-SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', not DEBUG)
-CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', not DEBUG)
+SECURE_SSL_REDIRECT = False if IS_TESTING else env_bool('SECURE_SSL_REDIRECT', not DEBUG)
+SESSION_COOKIE_SECURE = False if IS_TESTING else env_bool('SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = False if IS_TESTING else env_bool('CSRF_COOKIE_SECURE', not DEBUG)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0' if DEBUG else '31536000'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
