@@ -153,3 +153,11 @@ def dashboard_sales_trend(request):
     service = get_dashboard_service(request)
     granularity = request.query_params.get('granularity', 'day')
     return Response(serialize_money(service.get_sales_trend(granularity=granularity)))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_profit_trend(request):
+    service = get_dashboard_service(request)
+    granularity = request.query_params.get('granularity', 'day')
+    return Response(serialize_money(service.get_profit_trend(granularity=granularity)))

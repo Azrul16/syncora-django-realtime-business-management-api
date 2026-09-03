@@ -4,6 +4,7 @@ from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from apps.customers.models import Customer
 from apps.inventory.models import InventoryStock
 from apps.products.models import Product
+from apps.sales.models import SaleItem
 
 from .financial_summary import FinancialSummaryService, decimal_sum
 
@@ -69,10 +70,7 @@ class DashboardAnalyticsService:
         }
 
     def get_sales_trend(self, granularity='day'):
-        trunc = {
-            'week': TruncWeek,
-            'month': TruncMonth,
-        }.get(granularity, TruncDay)
+        trunc = self.get_trunc_function(granularity)
         rows = (
             self.financials.get_sales_queryset()
             .annotate(period=trunc('sale_date'))
@@ -91,3 +89,41 @@ class DashboardAnalyticsService:
             }
             for row in rows
         ]
+
+    def get_profit_trend(self, granularity='day'):
+        trunc = self.get_trunc_function(granularity)
+        revenue_rows = self.financials.get_sales_queryset().annotate(
+            period=trunc('sale_date')
+        ).values('period').annotate(
+            revenue=Sum('grand_total', output_field=DecimalField(max_digits=14, decimal_places=2)),
+        )
+        cogs_rows = SaleItem.objects.filter(sale__in=self.financials.get_sales_queryset()).annotate(
+            period=trunc('sale__sale_date')
+        ).values('period').annotate(
+            cogs=Sum(F('quantity') * F('unit_cost'), output_field=DecimalField(max_digits=14, decimal_places=2)),
+        )
+        revenue_by_period = {row['period']: decimal_sum(row['revenue']) for row in revenue_rows}
+        cogs_by_period = {row['period']: decimal_sum(row['cogs']) for row in cogs_rows}
+
+        rows = []
+        for period in sorted(set(revenue_by_period) | set(cogs_by_period)):
+            revenue = revenue_by_period.get(period, decimal_sum(None))
+            cogs = cogs_by_period.get(period, decimal_sum(None))
+            gross_profit = revenue - cogs
+            margin = (gross_profit / revenue * 100) if revenue else decimal_sum(None)
+            rows.append(
+                {
+                    'date': (period.date() if hasattr(period, 'date') else period).isoformat(),
+                    'revenue': revenue,
+                    'cogs': cogs,
+                    'gross_profit': gross_profit,
+                    'gross_margin_percentage': margin,
+                }
+            )
+        return rows
+
+    def get_trunc_function(self, granularity):
+        return {
+            'week': TruncWeek,
+            'month': TruncMonth,
+        }.get(granularity, TruncDay)

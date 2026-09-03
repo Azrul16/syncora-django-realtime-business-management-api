@@ -10,4 +10,5 @@ urlpatterns = [
     path('finance/cash-flow/', views.cash_flow_summary, name='finance-cash-flow'),
     path('dashboard/summary/', views.dashboard_summary, name='dashboard-summary'),
     path('dashboard/sales-trend/', views.dashboard_sales_trend, name='dashboard-sales-trend'),
+    path('dashboard/profit-trend/', views.dashboard_profit_trend, name='dashboard-profit-trend'),
 ]
