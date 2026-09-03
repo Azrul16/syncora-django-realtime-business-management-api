@@ -7,6 +7,16 @@ from ..event_types import EventType, build_realtime_event
 from ..models import ActivityLog, Notification
 
 
+DASHBOARD_EVENTS = {
+    EventType.INVENTORY_UPDATED,
+    EventType.INVENTORY_LOW_STOCK,
+    EventType.PURCHASE_RECEIVED,
+    EventType.SALE_COMPLETED,
+    EventType.PAYMENT_CREATED,
+    EventType.EXPENSE_APPROVED,
+}
+
+
 def get_resource_identity(resource):
     if not resource:
         return '', ''
@@ -104,6 +114,22 @@ def dispatch_event(
                         'title': notification.title,
                         'message': notification.message,
                         'is_read': notification.is_read,
+                    },
+                ),
+            )
+
+        if event in DASHBOARD_EVENTS:
+            from apps.finance.services.dashboard_analytics import DashboardAnalyticsService
+            from apps.finance.views import serialize_money
+
+            async_to_sync(channel_layer.group_send)(
+                f'organization_{organization.id}_dashboard',
+                build_realtime_event(
+                    EventType.DASHBOARD_UPDATED,
+                    organization.id,
+                    {
+                        'reason': event,
+                        'summary': serialize_money(DashboardAnalyticsService(organization=organization).get_summary()),
                     },
                 ),
             )

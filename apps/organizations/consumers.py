@@ -183,6 +183,24 @@ class OrganizationFinanceConsumer(OrganizationConsumer):
         await self.channel_layer.group_discard(self.finance_group_name, self.channel_name)
 
 
+class OrganizationDashboardConsumer(OrganizationConsumer):
+    async def connect(self):
+        self.organization_id = self.scope['url_route']['kwargs']['organization_id']
+        self.group_name = f'organization_{self.organization_id}'
+        self.dashboard_group_name = f'organization_{self.organization_id}_dashboard'
+
+        if not await self.can_connect():
+            await self.close(code=4403)
+            return
+
+        await self.channel_layer.group_add(self.dashboard_group_name, self.channel_name)
+        await self.accept()
+        await self.send_json({'type': 'connection.ready'})
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(self.dashboard_group_name, self.channel_name)
+
+
 class OrganizationBranchConsumer(OrganizationConsumer):
     async def connect(self):
         self.organization_id = self.scope['url_route']['kwargs']['organization_id']

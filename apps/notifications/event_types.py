@@ -17,6 +17,7 @@ class EventType:
     EXPENSE_REJECTED = 'expense.rejected'
     EXPENSE_CANCELLED = 'expense.cancelled'
     FINANCE_UPDATED = 'finance.updated'
+    DASHBOARD_UPDATED = 'dashboard.updated'
     NOTIFICATION_CREATED = 'notification.created'
 
 
