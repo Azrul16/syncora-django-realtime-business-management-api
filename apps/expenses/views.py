@@ -6,7 +6,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.finance.events import broadcast_finance_update
+from apps.notifications.event_types import EventType
+from apps.notifications.services.event_dispatcher import dispatch_event
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
     get_active_membership,
@@ -55,7 +56,19 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         membership = get_active_membership(self.request.user, organization)
         if not membership:
             raise PermissionDenied('Only organization members can create expenses.')
-        serializer.save(created_by=self.request.user)
+        expense = serializer.save(created_by=self.request.user)
+        dispatch_event(
+            event=EventType.EXPENSE_CREATED,
+            organization=expense.organization,
+            actor=self.request.user,
+            resource=expense,
+            branch=expense.branch,
+            data={'expense_id': expense.id, 'expense_number': expense.expense_number, 'status': expense.status},
+            groups=[f'organization_{expense.organization_id}_finance'],
+            notification_title='Expense awaiting approval',
+            notification_message=f'{expense.expense_number} is waiting for approval.',
+            activity_description=f'{expense.expense_number} was created.',
+        )
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
@@ -67,7 +80,18 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
-        broadcast_finance_update(expense.organization, 'expense.approved')
+        dispatch_event(
+            event=EventType.EXPENSE_APPROVED,
+            organization=expense.organization,
+            actor=request.user,
+            resource=expense,
+            branch=expense.branch,
+            data={'expense_id': expense.id, 'expense_number': expense.expense_number, 'status': expense.status},
+            groups=[f'organization_{expense.organization_id}_finance'],
+            notification_title='Expense approved',
+            notification_message=f'{expense.expense_number} was approved.',
+            activity_description=f'{expense.expense_number} was approved.',
+        )
         return Response(self.get_serializer(expense).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -80,6 +104,16 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
+        dispatch_event(
+            event=EventType.EXPENSE_REJECTED,
+            organization=expense.organization,
+            actor=request.user,
+            resource=expense,
+            branch=expense.branch,
+            data={'expense_id': expense.id, 'expense_number': expense.expense_number, 'status': expense.status},
+            groups=[f'organization_{expense.organization_id}_finance'],
+            activity_description=f'{expense.expense_number} was rejected.',
+        )
         return Response(self.get_serializer(expense).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -97,6 +131,16 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
+        dispatch_event(
+            event=EventType.EXPENSE_CANCELLED,
+            organization=expense.organization,
+            actor=request.user,
+            resource=expense,
+            branch=expense.branch,
+            data={'expense_id': expense.id, 'expense_number': expense.expense_number, 'status': expense.status},
+            groups=[f'organization_{expense.organization_id}_finance'],
+            activity_description=f'{expense.expense_number} was cancelled.',
+        )
         return Response(self.get_serializer(expense).data, status=status.HTTP_200_OK)
 
     def ensure_can_approve_expense(self, request, expense, action_name):

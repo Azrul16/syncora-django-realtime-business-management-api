@@ -5,14 +5,14 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.finance.events import broadcast_finance_update
+from apps.notifications.event_types import EventType
+from apps.notifications.services.event_dispatcher import dispatch_event
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
     get_active_membership,
 )
 
 from .models import Purchase
-from .events import broadcast_purchase_event
 from .serializers import PurchaseSerializer
 
 
@@ -59,7 +59,16 @@ class PurchaseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
-        broadcast_purchase_event(purchase, 'purchase.ordered')
+        dispatch_event(
+            event=EventType.PURCHASE_ORDERED,
+            organization=purchase.organization,
+            actor=request.user,
+            resource=purchase,
+            branch=purchase.branch,
+            data={'purchase_id': purchase.id, 'purchase_number': purchase.purchase_number, 'status': purchase.status},
+            groups=[f'organization_{purchase.organization_id}_purchases'],
+            activity_description=f'{purchase.purchase_number} was ordered.',
+        )
         return Response(self.get_serializer(purchase).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -72,8 +81,26 @@ class PurchaseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
-        broadcast_purchase_event(purchase, 'purchase.received')
-        broadcast_finance_update(purchase.organization, 'purchase.received')
+        dispatch_event(
+            event=EventType.PURCHASE_RECEIVED,
+            organization=purchase.organization,
+            actor=request.user,
+            resource=purchase,
+            branch=purchase.branch,
+            data={
+                'purchase_id': purchase.id,
+                'purchase_number': purchase.purchase_number,
+                'status': purchase.status,
+                'total': str(purchase.grand_total),
+            },
+            groups=[
+                f'organization_{purchase.organization_id}_purchases',
+                f'organization_{purchase.organization_id}_finance',
+            ],
+            notification_title='Purchase received',
+            notification_message=f'{purchase.purchase_number} was received.',
+            activity_description=f'{purchase.purchase_number} was received.',
+        )
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -87,7 +114,16 @@ class PurchaseViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
-        broadcast_purchase_event(purchase, 'purchase.cancelled')
+        dispatch_event(
+            event=EventType.PURCHASE_CANCELLED,
+            organization=purchase.organization,
+            actor=request.user,
+            resource=purchase,
+            branch=purchase.branch,
+            data={'purchase_id': purchase.id, 'purchase_number': purchase.purchase_number, 'status': purchase.status},
+            groups=[f'organization_{purchase.organization_id}_purchases'],
+            activity_description=f'{purchase.purchase_number} was cancelled.',
+        )
         return Response(self.get_serializer(purchase).data, status=status.HTTP_200_OK)
 
     def ensure_can_manage_purchase(self, request, purchase, action_name):

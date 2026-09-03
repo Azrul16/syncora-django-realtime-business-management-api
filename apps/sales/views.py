@@ -7,13 +7,13 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.finance.events import broadcast_finance_update
+from apps.notifications.event_types import EventType
+from apps.notifications.services.event_dispatcher import dispatch_event
 from apps.organizations.permissions import (
     IsOrganizationMemberReadOnlyOrManager,
     get_active_membership,
 )
 
-from .events import broadcast_payment_event, broadcast_sale_event
 from .models import Payment, Sale
 from .serializers import PaymentSerializer, SaleSerializer
 
@@ -78,7 +78,16 @@ class SaleViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
-        broadcast_sale_event(sale, 'sale.confirmed')
+        dispatch_event(
+            event=EventType.SALE_CONFIRMED,
+            organization=sale.organization,
+            actor=request.user,
+            resource=sale,
+            branch=sale.branch,
+            data={'sale_id': sale.id, 'sale_number': sale.sale_number, 'status': sale.status},
+            groups=[f'organization_{sale.organization_id}_sales'],
+            activity_description=f'{sale.sale_number} was confirmed.',
+        )
         return Response(self.get_serializer(sale).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -88,8 +97,27 @@ class SaleViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer()
         serializer.complete(sale)
-        broadcast_sale_event(sale, 'sale.completed')
-        broadcast_finance_update(sale.organization, 'sale.completed')
+        dispatch_event(
+            event=EventType.SALE_COMPLETED,
+            organization=sale.organization,
+            actor=request.user,
+            resource=sale,
+            branch=sale.branch,
+            data={
+                'sale_id': sale.id,
+                'sale_number': sale.sale_number,
+                'status': sale.status,
+                'total': str(sale.grand_total),
+                'payment_status': sale.payment_status,
+            },
+            groups=[
+                f'organization_{sale.organization_id}_sales',
+                f'organization_{sale.organization_id}_finance',
+            ],
+            notification_title='Sale completed',
+            notification_message=f'{sale.sale_number} was completed for {sale.grand_total}.',
+            activity_description=f'{sale.sale_number} was completed.',
+        )
         return Response(self.get_serializer(sale).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -102,7 +130,16 @@ class SaleViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'status': error.messages}) from error
 
-        broadcast_sale_event(sale, 'sale.cancelled')
+        dispatch_event(
+            event=EventType.SALE_CANCELLED,
+            organization=sale.organization,
+            actor=request.user,
+            resource=sale,
+            branch=sale.branch,
+            data={'sale_id': sale.id, 'sale_number': sale.sale_number, 'status': sale.status},
+            groups=[f'organization_{sale.organization_id}_sales'],
+            activity_description=f'{sale.sale_number} was cancelled.',
+        )
         return Response(self.get_serializer(sale).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get', 'post'])
@@ -122,8 +159,29 @@ class SaleViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as error:
             raise ValidationError({'payment': error.messages}) from error
 
-        broadcast_payment_event(payment)
-        broadcast_finance_update(sale.organization, 'payment.created')
+        dispatch_event(
+            event=EventType.PAYMENT_CREATED,
+            organization=sale.organization,
+            actor=request.user,
+            resource=payment,
+            branch=sale.branch,
+            data={
+                'payment_id': payment.id,
+                'sale_id': sale.id,
+                'sale_number': sale.sale_number,
+                'amount': str(payment.amount),
+                'payment_status': sale.payment_status,
+                'paid_amount': str(sale.paid_amount),
+                'due_amount': str(sale.due_amount),
+            },
+            groups=[
+                f'organization_{sale.organization_id}_payments',
+                f'organization_{sale.organization_id}_finance',
+            ],
+            notification_title='Payment received',
+            notification_message=f'Payment received for {sale.sale_number}: {payment.amount}.',
+            activity_description=f'Payment received for {sale.sale_number}.',
+        )
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
 
     def ensure_can_manage_sale(self, request, sale, action_name):

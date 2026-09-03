@@ -12,8 +12,10 @@ class EventType:
     SALE_COMPLETED = 'sale.completed'
     SALE_CANCELLED = 'sale.cancelled'
     PAYMENT_CREATED = 'payment.created'
+    EXPENSE_CREATED = 'expense.created'
     EXPENSE_APPROVED = 'expense.approved'
     EXPENSE_REJECTED = 'expense.rejected'
+    EXPENSE_CANCELLED = 'expense.cancelled'
     FINANCE_UPDATED = 'finance.updated'
     NOTIFICATION_CREATED = 'notification.created'
 

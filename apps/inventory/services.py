@@ -3,8 +3,9 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from .events import broadcast_stock_updated
 from .models import InventoryStock, StockMovement
+from apps.notifications.event_types import EventType
+from apps.notifications.services.event_dispatcher import dispatch_event
 
 
 def increase_stock(*, branch, quantity, product_variant=None, product=None, movement_type=None, reference='', note='', user=None):
@@ -105,5 +106,28 @@ def change_stock(*, branch, quantity, product_variant=None, product=None, moveme
         note=note,
         created_by=user if getattr(user, 'is_authenticated', False) else None,
     )
-    broadcast_stock_updated(stock, movement=movement)
+    event = EventType.INVENTORY_LOW_STOCK if stock.is_low_stock else EventType.INVENTORY_UPDATED
+    dispatch_event(
+        event=event,
+        organization=organization,
+        actor=user,
+        resource=stock,
+        branch=branch,
+        data={
+            'inventory_id': stock.id,
+            'branch_id': stock.branch_id,
+            'product_id': stock.product_id,
+            'variant_id': stock.product_variant_id,
+            'quantity': str(stock.quantity),
+            'reorder_level': str(stock.reorder_level),
+            'is_low_stock': stock.is_low_stock,
+            'previous_quantity': str(movement.previous_quantity),
+            'movement_quantity': str(movement.quantity),
+            'movement_type': movement.movement_type,
+        },
+        groups=[f'organization_{organization.id}_inventory'],
+        notification_title='Low stock detected' if stock.is_low_stock else '',
+        notification_message=f'{stock.product} stock is now {stock.quantity}.' if stock.is_low_stock else '',
+        activity_description=f'Inventory updated for {stock.product}.',
+    )
     return stock, movement
