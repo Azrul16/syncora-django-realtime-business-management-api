@@ -18,13 +18,14 @@ from apps.organizations.permissions import (
 )
 
 from .models import Payment, Sale
+from .filters import SaleFilter
 from .serializers import PaymentSerializer, SaleSerializer
 
 
 class SaleViewSet(viewsets.ModelViewSet):
     serializer_class = SaleSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
-    filterset_fields = ['organization', 'branch', 'customer', 'status']
+    filterset_class = SaleFilter
     search_fields = ['reference', 'sale_number', 'customer__name', 'branch__name']
     ordering_fields = ['sale_date', 'created_at', 'updated_at', 'completed_at']
 
@@ -38,13 +39,7 @@ class SaleViewSet(viewsets.ModelViewSet):
             'payments',
         ).distinct()
         queryset = filter_queryset_by_branch_access(queryset, self.request.user)
-        date_from = self.request.query_params.get('date_from')
-        date_to = self.request.query_params.get('date_to')
         payment_status = self.request.query_params.get('payment_status')
-        if date_from:
-            queryset = queryset.filter(sale_date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(sale_date__lte=date_to)
         if payment_status:
             queryset = queryset.annotate(
                 paid_total=Coalesce(

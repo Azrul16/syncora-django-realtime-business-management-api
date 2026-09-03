@@ -19,6 +19,7 @@ from apps.organizations.permissions import (
 )
 
 from .models import Expense, ExpenseCategory
+from .filters import ExpenseFilter
 from .serializers import ExpenseCategorySerializer, ExpenseSerializer
 
 
@@ -68,7 +69,7 @@ class ExpenseCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 class ExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
-    filterset_fields = ['organization', 'branch', 'category', 'status', 'expense_date']
+    filterset_class = ExpenseFilter
     search_fields = ['title', 'description', 'reference', 'notes', 'expense_number']
     ordering_fields = ['expense_date', 'amount', 'created_at']
 

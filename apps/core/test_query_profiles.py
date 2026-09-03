@@ -128,3 +128,21 @@ class QueryProfileTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 5)
         self.assertEqual(response.data['count'], 25)
+
+    def test_product_filtering_runs_in_database(self):
+        response = self.client.get('/api/v1/products/?brand=&category=&is_active=true')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 25)
+
+    def test_sales_date_range_filtering_runs_in_database(self):
+        response = self.client.get('/api/v1/sales/?date_from=2026-09-01&date_to=2026-09-30')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 10)
+
+    def test_purchase_date_range_filtering_runs_in_database(self):
+        response = self.client.get('/api/v1/purchases/?date_from=2026-09-01&date_to=2026-09-30')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 10)

@@ -9,6 +9,7 @@ from apps.organizations.permissions import (
 )
 
 from .models import Product, ProductCategory, ProductVariant
+from .filters import ProductFilter
 from .serializers import ProductCategorySerializer, ProductSerializer, ProductVariantSerializer
 
 
@@ -58,7 +59,7 @@ class ProductCategoryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 class ProductViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
-    filterset_fields = ['organization', 'is_active', 'sku', 'slug']
+    filterset_class = ProductFilter
     search_fields = ['name', 'sku', 'description']
     ordering_fields = ['name', 'sku', 'created_at', 'updated_at']
 

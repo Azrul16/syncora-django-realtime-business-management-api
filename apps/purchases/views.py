@@ -16,13 +16,14 @@ from apps.organizations.permissions import (
 )
 
 from .models import Purchase
+from .filters import PurchaseFilter
 from .serializers import PurchaseSerializer
 
 
 class PurchaseViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
-    filterset_fields = ['organization', 'branch', 'supplier', 'status']
+    filterset_class = PurchaseFilter
     search_fields = ['reference', 'purchase_number', 'supplier__name', 'branch__name']
     ordering_fields = ['order_date', 'created_at', 'updated_at', 'received_at']
 
@@ -35,12 +36,6 @@ class PurchaseViewSet(viewsets.ModelViewSet):
             'items__product_variant',
         ).distinct()
         queryset = filter_queryset_by_branch_access(queryset, self.request.user)
-        date_from = self.request.query_params.get('date_from')
-        date_to = self.request.query_params.get('date_to')
-        if date_from:
-            queryset = queryset.filter(order_date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(order_date__lte=date_to)
         return queryset
 
     def perform_create(self, serializer):
