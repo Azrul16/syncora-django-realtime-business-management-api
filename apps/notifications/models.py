@@ -38,3 +38,40 @@ class Notification(models.Model):
     def __str__(self):
         return f'{self.recipient} - {self.title}'
 
+
+class ActivityLog(models.Model):
+    organization = models.ForeignKey(
+        'organizations.Organization',
+        on_delete=models.CASCADE,
+        related_name='activity_logs',
+    )
+    branch = models.ForeignKey(
+        'branches.Branch',
+        on_delete=models.SET_NULL,
+        related_name='activity_logs',
+        null=True,
+        blank=True,
+    )
+    actor = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        related_name='activity_logs',
+        null=True,
+        blank=True,
+    )
+    action = models.CharField(max_length=100)
+    resource_type = models.CharField(max_length=100, blank=True)
+    resource_id = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['action', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.action} - {self.organization}'
