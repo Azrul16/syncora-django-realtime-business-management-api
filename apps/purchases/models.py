@@ -95,28 +95,35 @@ class Purchase(models.Model):
         from apps.inventory.services import increase_stock
         from django.utils import timezone
 
-        if self.status == self.Status.RECEIVED:
+        purchase = type(self).objects.select_for_update().prefetch_related(
+            'items__product',
+            'items__product_variant',
+        ).get(pk=self.pk)
+
+        if purchase.status == purchase.Status.RECEIVED:
             raise ValidationError('Purchase is already received.')
-        if self.status != self.Status.ORDERED:
+        if purchase.status != purchase.Status.ORDERED:
             raise ValidationError('Only ordered purchases can be received.')
-        if not self.items.exists():
+        if not purchase.items.exists():
             raise ValidationError('Purchase must have at least one item before receiving.')
 
-        for item in self.items.select_related('product', 'product_variant'):
+        for item in purchase.items.all():
             increase_stock(
-                branch=self.branch,
+                branch=purchase.branch,
                 product_variant=item.product_variant,
                 product=item.product,
                 quantity=item.quantity,
                 movement_type=StockMovement.MovementType.PURCHASE,
-                reference=self.purchase_number or self.reference,
+                reference=purchase.purchase_number or purchase.reference,
                 note='Purchase received.',
-                user=self.created_by,
+                user=purchase.created_by,
             )
 
-        self.status = self.Status.RECEIVED
-        self.received_at = timezone.now()
-        self.save(update_fields=['status', 'received_at', 'updated_at'])
+        purchase.status = purchase.Status.RECEIVED
+        purchase.received_at = timezone.now()
+        purchase.save(update_fields=['status', 'received_at', 'updated_at'])
+        self.status = purchase.status
+        self.received_at = purchase.received_at
 
     def __str__(self):
         return self.purchase_number or self.reference or f'Purchase #{self.pk}'

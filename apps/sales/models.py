@@ -121,29 +121,35 @@ class Sale(models.Model):
         from django.core.exceptions import ValidationError
         from django.utils import timezone
 
-        if self.status == self.Status.COMPLETED:
+        sale = type(self).objects.select_for_update().prefetch_related('items__product', 'items__product_variant').get(
+            pk=self.pk
+        )
+
+        if sale.status == sale.Status.COMPLETED:
             raise ValidationError('Sale is already completed.')
-        if self.status != self.Status.CONFIRMED:
+        if sale.status != sale.Status.CONFIRMED:
             raise ValidationError('Only confirmed sales can be completed.')
 
-        for item in self.items.select_related('product', 'product_variant'):
+        for item in sale.items.all():
             try:
                 decrease_stock(
-                    branch=self.branch,
+                    branch=sale.branch,
                     product_variant=item.product_variant,
                     product=item.product,
                     quantity=item.quantity,
                     movement_type=StockMovement.MovementType.SALE,
-                    reference=self.sale_number or self.reference,
+                    reference=sale.sale_number or sale.reference,
                     note='Sale completed.',
-                    user=self.created_by,
+                    user=sale.created_by,
                 )
             except ValidationError:
                 raise ValidationError(f'Insufficient stock for {item.product}.')
 
-        self.status = self.Status.COMPLETED
-        self.completed_at = timezone.now()
-        self.save(update_fields=['status', 'completed_at', 'updated_at'])
+        sale.status = sale.Status.COMPLETED
+        sale.completed_at = timezone.now()
+        sale.save(update_fields=['status', 'completed_at', 'updated_at'])
+        self.status = sale.status
+        self.completed_at = sale.completed_at
 
     def __str__(self):
         return self.sale_number or self.reference or f'Sale #{self.pk}'
@@ -229,7 +235,10 @@ class Payment(models.Model):
         if existing_paid + self.amount > self.sale.grand_total:
             raise ValidationError('Payment amount cannot exceed sale due amount.')
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        if self.sale_id:
+            self.sale = Sale.objects.select_for_update().get(pk=self.sale_id)
         self.organization = self.sale.organization
         self.full_clean()
         super().save(*args, **kwargs)

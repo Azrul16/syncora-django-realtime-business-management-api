@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 
 from apps.core.models import SoftDeleteModel
 
@@ -112,28 +112,39 @@ class Expense(models.Model):
     def approve(self, user):
         from django.core.exceptions import ValidationError
 
-        if self.status != self.Status.DRAFT:
-            raise ValidationError('Only draft expenses can be approved.')
-        self.status = self.Status.APPROVED
-        self.approved_by = user
-        self.save(update_fields=['status', 'approved_by', 'updated_at'])
+        with transaction.atomic():
+            expense = type(self).objects.select_for_update().get(pk=self.pk)
+            if expense.status != expense.Status.DRAFT:
+                raise ValidationError('Only draft expenses can be approved.')
+            expense.status = expense.Status.APPROVED
+            expense.approved_by = user
+            expense.save(update_fields=['status', 'approved_by', 'updated_at'])
+        self.status = expense.status
+        self.approved_by = expense.approved_by
 
     def reject(self, user):
         from django.core.exceptions import ValidationError
 
-        if self.status != self.Status.DRAFT:
-            raise ValidationError('Only draft expenses can be rejected.')
-        self.status = self.Status.REJECTED
-        self.approved_by = user
-        self.save(update_fields=['status', 'approved_by', 'updated_at'])
+        with transaction.atomic():
+            expense = type(self).objects.select_for_update().get(pk=self.pk)
+            if expense.status != expense.Status.DRAFT:
+                raise ValidationError('Only draft expenses can be rejected.')
+            expense.status = expense.Status.REJECTED
+            expense.approved_by = user
+            expense.save(update_fields=['status', 'approved_by', 'updated_at'])
+        self.status = expense.status
+        self.approved_by = expense.approved_by
 
     def cancel(self):
         from django.core.exceptions import ValidationError
 
-        if self.status != self.Status.DRAFT:
-            raise ValidationError('Only draft expenses can be cancelled.')
-        self.status = self.Status.CANCELLED
-        self.save(update_fields=['status', 'updated_at'])
+        with transaction.atomic():
+            expense = type(self).objects.select_for_update().get(pk=self.pk)
+            if expense.status != expense.Status.DRAFT:
+                raise ValidationError('Only draft expenses can be cancelled.')
+            expense.status = expense.Status.CANCELLED
+            expense.save(update_fields=['status', 'updated_at'])
+        self.status = expense.status
 
     def __str__(self):
         return f'{self.expense_number or self.title} - {self.amount}'
