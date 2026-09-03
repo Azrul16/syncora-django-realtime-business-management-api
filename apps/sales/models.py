@@ -56,6 +56,14 @@ class Sale(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['organization', 'status']),
+            models.Index(fields=['organization', 'branch']),
+            models.Index(fields=['organization', 'customer']),
+            models.Index(fields=['organization', 'sale_date']),
+            models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['sale_number']),
+        ]
 
     @property
     def total_amount(self):
@@ -163,6 +171,10 @@ class SaleItem(models.Model):
 
     class Meta:
         ordering = ['id']
+        indexes = [
+            models.Index(fields=['sale', 'product']),
+            models.Index(fields=['sale', 'product_variant']),
+        ]
 
     @property
     def line_total(self):
@@ -202,6 +214,11 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ['-paid_at']
+        indexes = [
+            models.Index(fields=['organization', '-paid_at']),
+            models.Index(fields=['sale', '-paid_at']),
+            models.Index(fields=['reference_number']),
+        ]
 
     def clean(self):
         if self.amount <= 0:

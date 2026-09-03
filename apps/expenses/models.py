@@ -17,6 +17,10 @@ class ExpenseCategory(SoftDeleteModel):
 
     class Meta:
         ordering = ['organization', 'name']
+        indexes = [
+            models.Index(fields=['organization', 'is_active', 'is_deleted']),
+            models.Index(fields=['organization', 'name']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['organization', 'name'],
@@ -90,6 +94,14 @@ class Expense(models.Model):
 
     class Meta:
         ordering = ['-expense_date', '-created_at']
+        indexes = [
+            models.Index(fields=['organization', 'status']),
+            models.Index(fields=['organization', 'branch']),
+            models.Index(fields=['organization', 'category']),
+            models.Index(fields=['organization', 'expense_date']),
+            models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['expense_number']),
+        ]
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

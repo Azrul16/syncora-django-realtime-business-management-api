@@ -39,6 +39,12 @@ class InventoryStock(models.Model):
 
     class Meta:
         ordering = ['organization', 'branch', 'product_variant', 'product']
+        indexes = [
+            models.Index(fields=['organization', 'branch']),
+            models.Index(fields=['organization', 'product']),
+            models.Index(fields=['organization', 'product_variant']),
+            models.Index(fields=['branch', 'updated_at']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['branch', 'product'],
@@ -113,6 +119,12 @@ class StockMovement(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['organization', 'branch', '-created_at']),
+            models.Index(fields=['organization', 'movement_type', '-created_at']),
+            models.Index(fields=['reference']),
+        ]
 
     def __str__(self):
         item = self.product_variant or self.product

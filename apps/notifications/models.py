@@ -40,6 +40,8 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=['recipient', 'is_read', '-created_at']),
             models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['organization', 'recipient', '-created_at']),
+            models.Index(fields=['resource_type', 'resource_id']),
         ]
 
     def mark_read(self):
@@ -89,7 +91,9 @@ class ActivityLog(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['organization', 'branch', '-created_at']),
             models.Index(fields=['action', '-created_at']),
+            models.Index(fields=['resource_type', 'resource_id']),
         ]
 
     def __str__(self):
@@ -125,6 +129,8 @@ class AuditLog(models.Model):
             models.Index(fields=['organization', '-created_at']),
             models.Index(fields=['actor', '-created_at']),
             models.Index(fields=['action', '-created_at']),
+            models.Index(fields=['target_type', 'target_id']),
+            models.Index(fields=['request_id']),
         ]
 
     def delete(self, *args, **kwargs):

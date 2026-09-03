@@ -28,6 +28,12 @@ class Customer(SoftDeleteModel):
 
     class Meta:
         ordering = ['organization', 'name']
+        indexes = [
+            models.Index(fields=['organization', 'is_active', 'is_deleted']),
+            models.Index(fields=['organization', 'customer_code']),
+            models.Index(fields=['organization', 'name']),
+            models.Index(fields=['organization', 'created_at']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['organization', 'customer_code'],

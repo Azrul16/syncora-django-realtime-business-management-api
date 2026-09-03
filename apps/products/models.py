@@ -19,6 +19,10 @@ class ProductCategory(SoftDeleteModel):
 
     class Meta:
         ordering = ['organization', 'name']
+        indexes = [
+            models.Index(fields=['organization', 'is_active', 'is_deleted']),
+            models.Index(fields=['organization', 'name']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['organization', 'name'],
@@ -73,6 +77,13 @@ class Product(SoftDeleteModel):
 
     class Meta:
         ordering = ['organization', 'name']
+        indexes = [
+            models.Index(fields=['organization', 'is_active', 'is_deleted']),
+            models.Index(fields=['organization', 'category']),
+            models.Index(fields=['organization', 'brand']),
+            models.Index(fields=['organization', 'sku']),
+            models.Index(fields=['organization', 'created_at']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['organization', 'sku'],
@@ -105,6 +116,10 @@ class ProductVariant(models.Model):
 
     class Meta:
         ordering = ['product', 'name']
+        indexes = [
+            models.Index(fields=['product', 'is_active']),
+            models.Index(fields=['product', 'sku']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['product', 'sku'],

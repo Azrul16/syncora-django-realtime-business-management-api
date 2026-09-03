@@ -51,6 +51,14 @@ class Purchase(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['organization', 'status']),
+            models.Index(fields=['organization', 'branch']),
+            models.Index(fields=['organization', 'supplier']),
+            models.Index(fields=['organization', 'order_date']),
+            models.Index(fields=['organization', '-created_at']),
+            models.Index(fields=['purchase_number']),
+        ]
 
     @property
     def total_amount(self):
@@ -135,6 +143,10 @@ class PurchaseItem(models.Model):
 
     class Meta:
         ordering = ['id']
+        indexes = [
+            models.Index(fields=['purchase', 'product']),
+            models.Index(fields=['purchase', 'product_variant']),
+        ]
 
     @property
     def line_total(self):
