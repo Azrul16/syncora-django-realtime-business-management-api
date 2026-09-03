@@ -29,6 +29,7 @@ DB_USER=syncora_user
 DB_PASSWORD=strong-production-password
 DB_HOST=production-postgres-host
 DB_PORT=5432
+DB_CONN_MAX_AGE=60
 
 SECURE_SSL_REDIRECT=True
 SESSION_COOKIE_SECURE=True
@@ -36,6 +37,11 @@ CSRF_COOKIE_SECURE=True
 SECURE_HSTS_SECONDS=31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS=True
 SECURE_HSTS_PRELOAD=True
+SECURE_CONTENT_TYPE_NOSNIFF=True
+SECURE_REFERRER_POLICY=same-origin
+X_FRAME_OPTIONS=DENY
+SESSION_COOKIE_SAMESITE=Lax
+CSRF_COOKIE_SAMESITE=Lax
 
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.example.com
@@ -51,6 +57,8 @@ EMAIL_USE_SSL=False
 - Set `DEBUG=False`.
 - Set a real `SECRET_KEY`.
 - Restrict `ALLOWED_HOSTS`.
+- Set `CSRF_TRUSTED_ORIGINS` to the HTTPS API and frontend origins.
+- Keep `SECURE_PROXY_SSL_HEADER` enabled behind an HTTPS-terminating proxy.
 - Configure PostgreSQL credentials from the environment.
 - Run `python manage.py migrate`.
 - Run `python manage.py collectstatic --noinput`.

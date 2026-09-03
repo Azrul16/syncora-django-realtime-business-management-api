@@ -16,6 +16,10 @@ def env_bool(name, default=False):
     return os.getenv(name, str(default)).lower() in {'1', 'true', 'yes', 'on'}
 
 
+def env_list(name, default=''):
+    return [value.strip() for value in os.getenv(name, default).split(',') if value.strip()]
+
+
 DEBUG = env_bool('DEBUG', True)
 IS_TESTING = 'test' in sys.argv
 DISABLE_AUTH_FOR_LOCAL_DEV = env_bool('DISABLE_AUTH_FOR_LOCAL_DEV', False)
@@ -27,15 +31,13 @@ if not SECRET_KEY and DEBUG:
 elif not SECRET_KEY:
     raise RuntimeError('SECRET_KEY must be set when DEBUG is False.')
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '').split(',') if host.strip()]
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS')
 if DEBUG and not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+elif not DEBUG and not ALLOWED_HOSTS:
+    raise RuntimeError('ALLOWED_HOSTS must be set when DEBUG is False.')
 
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
-    if origin.strip()
-]
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -112,6 +114,7 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60' if not DEBUG else '0')),
     }
 }
 
@@ -235,7 +238,11 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0' if DEBUG else '31536000'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
 SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False)
+SECURE_CONTENT_TYPE_NOSNIFF = env_bool('SECURE_CONTENT_TYPE_NOSNIFF', True)
+SECURE_REFERRER_POLICY = os.getenv('SECURE_REFERRER_POLICY', 'same-origin')
 X_FRAME_OPTIONS = os.getenv('X_FRAME_OPTIONS', 'DENY')
+SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
+CSRF_COOKIE_SAMESITE = os.getenv('CSRF_COOKIE_SAMESITE', 'Lax')
 
 
 # Email
