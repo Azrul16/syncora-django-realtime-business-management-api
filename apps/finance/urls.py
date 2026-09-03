@@ -8,5 +8,5 @@ urlpatterns = [
     path('finance/expense-summary/', views.expense_summary, name='finance-expense-summary'),
     path('finance/profit-summary/', views.profit_summary, name='finance-profit-summary'),
     path('finance/cash-flow/', views.cash_flow_summary, name='finance-cash-flow'),
+    path('dashboard/summary/', views.dashboard_summary, name='dashboard-summary'),
 ]
-

@@ -10,6 +10,7 @@ from apps.branches.models import Branch
 from apps.organizations.models import Organization
 from apps.organizations.permissions import get_active_membership
 
+from .services.dashboard_analytics import DashboardAnalyticsService
 from .services.financial_summary import FinancialSummaryService
 
 
@@ -40,6 +41,21 @@ def get_financial_service(request):
     if date_from and date_to and date_from > date_to:
         raise ValidationError({'date_to': 'date_to must be on or after date_from.'})
     return FinancialSummaryService(
+        organization=organization,
+        date_from=date_from,
+        date_to=date_to,
+        branch=branch,
+    )
+
+
+def get_dashboard_service(request):
+    organization = get_organization_for_request(request)
+    branch = get_branch_for_request(request, organization)
+    date_from = get_date_for_request(request, 'date_from')
+    date_to = get_date_for_request(request, 'date_to')
+    if date_from and date_to and date_from > date_to:
+        raise ValidationError({'date_to': 'date_to must be on or after date_from.'})
+    return DashboardAnalyticsService(
         organization=organization,
         date_from=date_from,
         date_to=date_to,
@@ -100,3 +116,10 @@ def profit_summary(request):
 def cash_flow_summary(request):
     service = get_financial_service(request)
     return Response(serialize_money(service.get_cash_flow_summary()))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_summary(request):
+    service = get_dashboard_service(request)
+    return Response(serialize_money(service.get_summary()))
